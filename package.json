@@ -1,0 +1,20 @@
+{
+  "name": "easy-admin",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["web", "bff"],
+  "scripts": {
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  }
+}
