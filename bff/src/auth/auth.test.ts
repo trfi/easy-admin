@@ -11,8 +11,9 @@ function makeConfig(password: string): Config {
     jwtSecret: 'test-secret-please-ignore-0123456789',
     adminUsername: 'admin',
     adminPassword: password,
-    serviceKey: 'svc',
     easyApiUrl: 'https://api.example.test',
+    hepiApiUrl: 'https://hepi.example.test',
+    adminSecret: 'hepi-secret',
     usdToVndRate: 26309,
     port: 3010,
   }

@@ -29,13 +29,15 @@ const USER = {
   updatedAt: '2026-06-01T00:00:00.000Z',
 }
 
+const SEARCH_RESPONSE = { users: [USER], page: 1, limit: 25, total: 1 }
+
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
   window.localStorage.setItem('easy-admin-token', 'test-token')
   fetchMock.mockResolvedValue({
     ok: true,
     status: 200,
-    json: async () => ({ users: [USER] }),
+    json: async () => SEARCH_RESPONSE,
   })
 })
 

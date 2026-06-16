@@ -1,16 +1,14 @@
 import type { ObjectId } from 'mongodb'
 
 // ── Collections in the shared easyquiz DB the dashboard reads ──
-// Names are Mongoose's DEFAULT pluralization of each model — none of the
-// source schemas set an explicit `collection:`, so e.g. model 'AiProviderConfig'
-// → collection 'aiproviderconfigs'. Verified against both repos' *.model.ts.
+// Names are Mongoose's DEFAULT pluralization of each model — verified against
+// both repos' *.model.ts. The AI-config collections are owned + served by Hepi
+// (60s runtime cache), so the BFF reaches them via Hepi's /ai-models API rather
+// than reading Mongo directly — see modules/ai/ai.service.ts.
 export const COLLECTIONS = {
   users: 'users',
   paymentHistory: 'paymenthistories',
   pointTransaction: 'pointtransactions',
-  aiProviderConfig: 'aiproviderconfigs',
-  aiModelComboConfig: 'aimodelcomboconfigs',
-  aiProviderStatus: 'aiprovidermodelstatuses',
 } as const
 
 // ── Superset user view (unions fields EasyQuiz + Hepi write to the same docs) ──
@@ -141,57 +139,4 @@ export function toPaymentView(doc: PaymentDoc): PaymentView {
     paymentName: doc.paymentName,
     voucherCode: doc.voucherCode,
   }
-}
-
-// ── AI provider config (apiKey MUST be stripped — see ai.service strip boundary) ──
-export interface AiProviderDoc {
-  _id: ObjectId
-  providerId: string
-  name: string
-  apiKey: string
-  baseURL: string
-  active: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface AiProviderView {
-  providerId: string
-  name: string
-  baseURL: string
-  active: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface AiModelComboCandidate {
-  providerId: string
-  modelId: string
-  active: boolean
-}
-
-export interface AiModelComboDoc {
-  _id: ObjectId
-  comboId: string
-  strategy: 'fallback'
-  candidates: AiModelComboCandidate[]
-  active: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface AiProviderStatusDoc {
-  _id: ObjectId
-  providerId: string
-  active: boolean
-  failureCount: number
-  lastFailureAt?: Date
-  lastSuccessAt?: Date
-  lastErrorCode?: string
-  lastErrorMessage?: string
-  disabledAt?: Date
-  disabledReason?: string
-  updatedBy?: string
-  createdAt: Date
-  updatedAt: Date
 }

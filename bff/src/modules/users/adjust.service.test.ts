@@ -17,8 +17,9 @@ function makeConfig(): Config {
     jwtSecret: 'secret',
     adminUsername: 'admin',
     adminPassword: 'pw',
-    serviceKey: 'svc-key-123',
+    adminSecret: 'admin-secret-123',
     easyApiUrl: 'https://api.example.test',
+    hepiApiUrl: 'https://hepi.example.test',
     usdToVndRate: 26309,
     port: 3010,
   }
@@ -104,7 +105,7 @@ describe('adjustPoints proxy', () => {
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe(`https://api.example.test/user/${VALID_ID}/points/adjust`)
     expect(init.method).toBe('POST')
-    expect(init.headers['X-Service-Key']).toBe('svc-key-123')
+    expect(init.headers['X-Admin-Secret']).toBe('admin-secret-123')
     expect(JSON.parse(init.body)).toEqual({ amount: 100, mode: 'permanent', reason: 'comp' })
     expect(result.newBalance.total).toBe(110)
   })

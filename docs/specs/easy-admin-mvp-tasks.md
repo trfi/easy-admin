@@ -9,7 +9,7 @@ Tasks are ordered by dependency. Each is a single focused session, ≤ ~5 files.
 ## Phase A — Scaffold
 
 - [ ] **A1: Monorepo skeleton + tooling**
-  - Acceptance: `web/` and `bff/` workspaces exist; root `package.json` (bun workspaces), shared TS config, prettier/eslint wired, `.env.example` with all keys (`MONGODB_URI`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `SERVICE_KEY`, `EASY_API_URL`, `USD_TO_VND_RATE`). No secrets committed.
+  - Acceptance: `web/` and `bff/` workspaces exist; root `package.json` (bun workspaces), shared TS config, prettier/eslint wired, `.env.example` with all keys (`MONGODB_URI`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_SECRET`, `EASY_API_URL`, `USD_TO_VND_RATE`). No secrets committed.
   - Verify: `bun install` clean; `bun run typecheck` passes on empty skeleton.
   - Files: `package.json`, `tsconfig.base.json`, `.env.example`, `.gitignore`, `web/package.json`, `bff/package.json`
 
@@ -104,7 +104,7 @@ Tasks are ordered by dependency. Each is a single focused session, ≤ ~5 files.
 ## Phase D — EasyQuiz endpoint  *(ASK FIRST — separate repo)*
 
 - [ ] **D1: serviceAuth middleware + POST /user/:id/points/adjust**
-  - Acceptance: `serviceAuth` compares `X-Service-Key` to `env.SERVICE_KEY` (scoped to this route, not `authenticate`/`isAdmin`); route wraps existing `addPermanentPoints` / `addExpiringPoints`; rejects bad key (403), negative/zero/`>10000` (400); `expiring` uses source `admin_adjustment`.
+  - Acceptance: `serviceAuth` compares `X-Admin-Secret` to `env.ADMIN_SECRET` (scoped to this route, not `authenticate`/`isAdmin`); route wraps existing `addPermanentPoints` / `addExpiringPoints`; rejects bad key (403), negative/zero/`>10000` (400); `expiring` uses source `admin_adjustment`.
   - Verify: in EasyQuiz repo — endpoint adds points + writes exactly one `Adjustment` transaction; reject paths return correct codes.
   - Files (EasyQuiz repo): `apps/api/src/middleware/service-auth.middleware.ts`, `apps/api/src/routes/user.routes.ts`, `apps/api/src/controllers/user.controller.ts`
 
@@ -113,7 +113,7 @@ Tasks are ordered by dependency. Each is a single focused session, ≤ ~5 files.
 ## Phase E — Points-adjust proxy + adjust form
 
 - [ ] **E1: BFF points-adjust proxy** *(buildable against mock before D lands)*
-  - Acceptance: `POST /api/users/:id/points/adjust` validates (positive, ≤10000, mode enum, valid ObjectId) at the boundary, then calls EasyQuiz with `X-Service-Key`; propagates errors. Never writes points itself.
+  - Acceptance: `POST /api/users/:id/points/adjust` validates (positive, ≤10000, mode enum, valid ObjectId) at the boundary, then calls EasyQuiz with `X-Admin-Secret`; propagates errors. Never writes points itself.
   - Verify: unit test against a mocked EasyQuiz endpoint — request shape, validation rejections, error propagation.
   - Files: `bff/src/modules/users/adjust.service.ts`, `adjust.routes.ts`, `adjust.service.test.ts`
 

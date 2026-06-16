@@ -1,16 +1,19 @@
 import { MongoClient, type Db, type Collection, type Document } from 'mongodb'
 
-// Mongoose default-pluralized collection names — see readModels.ts COLLECTIONS.
-export const WRITABLE_COLLECTIONS = ['aiproviderconfigs', 'aimodelcomboconfigs'] as const
+// The BFF is fully read-only over the shared Mongo. Every write proxies to its
+// owning service: points → EasyQuiz (/points/adjust), AI config → Hepi
+// (/ai-models, which serves these collections from a 60s runtime cache, so a
+// direct Mongo write would be stale and skip Hepi's invariants). An empty
+// allowlist is therefore the correct state — see CLAUDE.md "DB write guard".
+export const WRITABLE_COLLECTIONS = [] as const
 
 export type WritableCollection = (typeof WRITABLE_COLLECTIONS)[number]
 
 export class WriteNotAllowedError extends Error {
   constructor(collection: string) {
     super(
-      `Write to collection "${collection}" is not allowed. The BFF may only write to: ${WRITABLE_COLLECTIONS.join(
-        ', '
-      )}. All money/points writes must proxy to EasyQuiz.`
+      `Write to collection "${collection}" is not allowed. The BFF is read-only over the shared Mongo: ` +
+        'points writes proxy to EasyQuiz, AI-config writes proxy to Hepi.'
     )
     this.name = 'WriteNotAllowedError'
   }

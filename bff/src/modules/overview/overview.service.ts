@@ -1,7 +1,9 @@
 import type { DbHandle } from '../../db/client'
-import { COLLECTIONS, type AiProviderStatusDoc, type UserDoc } from '../../db/readModels'
-import { getRevenue, type RevenueSummary } from '../revenue/revenue.service'
-import { listStatus } from '../ai/ai.service'
+import type { Config } from '../../config'
+import { COLLECTIONS, type UserDoc } from '../../db/readModels'
+import { getRevenueSummary, type RevenueSummary } from '../revenue/revenue.service'
+import { listProviders } from '../ai/ai.service'
+import type { AiProviderView } from '../ai/ai.types'
 
 export interface AiHealth {
   total: number
@@ -27,32 +29,37 @@ export function activeSince(now: Date, days: number = ACTIVE_WINDOW_DAYS): Date 
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 }
 
-// Summarize provider status rows into total/active/disabled. Pure.
-export function summarizeAiHealth(statuses: AiProviderStatusDoc[]): AiHealth {
+// Summarize providers into total/active/disabled. Pure.
+export function summarizeAiHealth(providers: Pick<AiProviderView, 'active'>[]): AiHealth {
   let active = 0
-  for (const s of statuses) {
-    if (s.active) active += 1
+  for (const p of providers) {
+    if (p.active) active += 1
   }
-  return { total: statuses.length, active, disabled: statuses.length - active }
+  return { total: providers.length, active, disabled: providers.length - active }
 }
 
 // DB-touching orchestration. Composes existing services — no new business logic.
+// AI health proxies to Hepi (provider config), so a Hepi outage must not take the
+// whole overview down: fall back to a zeroed AiHealth on failure.
 export async function getOverview(
   db: DbHandle,
-  rate: number,
+  config: Config,
   now: Date = new Date()
 ): Promise<OverviewResult> {
-  const [revenue, activeUsers, statuses] = await Promise.all([
-    getRevenue(db, { from: monthStart(now) }, rate),
+  const [revenue, activeUsers, aiHealth] = await Promise.all([
+    getRevenueSummary(db, { from: monthStart(now) }, config.usdToVndRate),
     db
       .collection<UserDoc>(COLLECTIONS.users)
       .countDocuments({ updatedAt: { $gte: activeSince(now) } }),
-    listStatus(db),
+    listProviders(config)
+      .then(summarizeAiHealth)
+      .catch(() => ({ total: 0, active: 0, disabled: 0 }) satisfies AiHealth),
   ])
 
   return {
-    revenueThisMonth: revenue.summary,
+    revenueThisMonth: revenue,
     activeUsers,
-    aiHealth: summarizeAiHealth(statuses),
+    aiHealth,
   }
 }
+

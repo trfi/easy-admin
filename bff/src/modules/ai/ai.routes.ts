@@ -1,72 +1,178 @@
 import { Hono } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { AppEnv } from '../../app'
-import type { DbHandle } from '../../db/client'
-import { COLLECTIONS, type AiModelComboDoc, type AiProviderDoc } from '../../db/readModels'
-import { listCombos, listProviders, listStatus, toAiProviderView } from './ai.service'
+import type { Config } from '../../config'
+import { HepiUpstreamError } from '../../lib/hepiClient'
+import {
+  AiValidationError,
+  validateComboAddCandidate,
+  validateComboRemoveCandidate,
+  validateComboCreate,
+  validateComboId,
+  validateComboReorder,
+  validateComboUpdate,
+  validateModelStatusInput,
+  validateProviderCreate,
+  validateProviderId,
+  validateProviderUpdate,
+  validateTest,
+} from './ai.validate'
+import {
+  activateModel,
+  addComboCandidate,
+  removeComboCandidate,
+  createCombo,
+  createProvider,
+  deactivateModel,
+  deleteCombo,
+  deleteProvider,
+  listCombos,
+  listProviders,
+  listStatus,
+  reorderComboCandidate,
+  testCombo,
+  testProvider,
+  updateCombo,
+  updateProvider,
+} from './ai.service'
 
-export function aiRoutes(db: DbHandle): Hono<AppEnv> {
+// Run a handler that may throw AiValidationError (→400) or HepiUpstreamError
+// (→ pass the upstream status through, clamped to a sane range). Anything else
+// bubbles to the app-level error handler.
+async function guard(
+  c: { json: (body: unknown, status?: ContentfulStatusCode) => Response },
+  fn: () => Promise<Response>
+): Promise<Response> {
+  try {
+    return await fn()
+  } catch (err) {
+    if (err instanceof AiValidationError) {
+      return c.json({ error: err.message }, 400)
+    }
+    if (err instanceof HepiUpstreamError) {
+      const status = err.status >= 400 && err.status < 600 ? err.status : 502
+      return c.json({ error: err.message, code: err.code }, status as ContentfulStatusCode)
+    }
+    throw err
+  }
+}
+
+async function readJson(c: { req: { json: () => Promise<unknown> } }): Promise<Record<string, unknown>> {
+  const body = await c.req.json().catch(() => ({}))
+  return (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
+}
+
+export function aiRoutes(config: Config): Hono<AppEnv> {
   const router = new Hono<AppEnv>()
 
-  router.get('/providers', async (c) => {
-    return c.json({ providers: await listProviders(db) })
-  })
+  // ── Providers ──
+  router.get('/providers', (c) => guard(c, async () => c.json({ providers: await listProviders(config) })))
 
-  router.get('/combos', async (c) => {
-    return c.json({ combos: await listCombos(db) })
-  })
+  router.post('/providers', (c) =>
+    guard(c, async () => {
+      const input = validateProviderCreate(await readJson(c))
+      return c.json({ provider: await createProvider(input, config) }, 201)
+    })
+  )
 
-  router.get('/status', async (c) => {
-    return c.json({ status: await listStatus(db) })
-  })
+  router.patch('/providers/:providerId', (c) =>
+    guard(c, async () => {
+      const providerId = validateProviderId(c.req.param('providerId'))
+      const input = validateProviderUpdate(await readJson(c))
+      return c.json({ provider: await updateProvider(providerId, input, config) })
+    })
+  )
 
-  // Toggle provider active — direct write to an allowlisted collection.
-  router.patch('/providers/:providerId', async (c) => {
-    const providerId = c.req.param('providerId')
-    const body = await c.req.json().catch(() => ({}))
-    if (typeof body.active !== 'boolean') {
-      return c.json({ error: 'active (boolean) is required' }, 400)
-    }
+  router.delete('/providers/:providerId', (c) =>
+    guard(c, async () => {
+      const providerId = validateProviderId(c.req.param('providerId'))
+      await deleteProvider(providerId, config)
+      return c.json({ success: true })
+    })
+  )
 
-    const result = await db
-      .collection<AiProviderDoc>(COLLECTIONS.aiProviderConfig)
-      .findOneAndUpdate(
-        { providerId },
-        { $set: { active: body.active, updatedAt: new Date() } },
-        { returnDocument: 'after' }
-      )
+  router.post('/providers/:providerId/test', (c) =>
+    guard(c, async () => {
+      const providerId = validateProviderId(c.req.param('providerId'))
+      const input = validateTest(await readJson(c), true)
+      return c.json(await testProvider(providerId, input, config))
+    })
+  )
 
-    if (!result) {
-      return c.json({ error: 'Provider not found' }, 404)
-    }
-    return c.json({ provider: toAiProviderView(result) })
-  })
+  // ── Combos ──
+  router.get('/combos', (c) => guard(c, async () => c.json({ combos: await listCombos(config) })))
 
-  // Edit model combo (candidates / active) — direct write to an allowlisted collection.
-  router.patch('/combos/:comboId', async (c) => {
-    const comboId = c.req.param('comboId')
-    const body = await c.req.json().catch(() => ({}))
+  router.post('/combos', (c) =>
+    guard(c, async () => {
+      const input = validateComboCreate(await readJson(c))
+      return c.json({ combo: await createCombo(input, config) }, 201)
+    })
+  )
 
-    const update: Partial<Pick<AiModelComboDoc, 'candidates' | 'active'>> = {}
-    if (Array.isArray(body.candidates)) update.candidates = body.candidates
-    if (typeof body.active === 'boolean') update.active = body.active
+  router.patch('/combos/:comboId', (c) =>
+    guard(c, async () => {
+      const comboId = validateComboId(c.req.param('comboId'))
+      const input = validateComboUpdate(await readJson(c))
+      return c.json({ combo: await updateCombo(comboId, input, config) })
+    })
+  )
 
-    if (Object.keys(update).length === 0) {
-      return c.json({ error: 'Nothing to update (candidates or active required)' }, 400)
-    }
+  router.delete('/combos/:comboId', (c) =>
+    guard(c, async () => {
+      const comboId = validateComboId(c.req.param('comboId'))
+      await deleteCombo(comboId, config)
+      return c.json({ success: true })
+    })
+  )
 
-    const result = await db
-      .collection<AiModelComboDoc>(COLLECTIONS.aiModelComboConfig)
-      .findOneAndUpdate(
-        { comboId },
-        { $set: { ...update, updatedAt: new Date() } },
-        { returnDocument: 'after' }
-      )
+  router.post('/combos/:comboId/reorder', (c) =>
+    guard(c, async () => {
+      const comboId = validateComboId(c.req.param('comboId'))
+      const input = validateComboReorder(await readJson(c))
+      return c.json({ combo: await reorderComboCandidate(comboId, input, config) })
+    })
+  )
 
-    if (!result) {
-      return c.json({ error: 'Combo not found' }, 404)
-    }
-    return c.json({ combo: result })
-  })
+  router.post('/combos/:comboId/candidates', (c) =>
+    guard(c, async () => {
+      const comboId = validateComboId(c.req.param('comboId'))
+      const input = validateComboAddCandidate(await readJson(c))
+      return c.json({ combo: await addComboCandidate(comboId, input, config) })
+    })
+  )
+
+  router.delete('/combos/:comboId/candidates', (c) =>
+    guard(c, async () => {
+      const comboId = validateComboId(c.req.param('comboId'))
+      const input = validateComboRemoveCandidate(await readJson(c))
+      return c.json({ combo: await removeComboCandidate(comboId, input, config) })
+    })
+  )
+
+  router.post('/combos/:comboId/test', (c) =>
+    guard(c, async () => {
+      const comboId = validateComboId(c.req.param('comboId'))
+      const input = validateTest(await readJson(c), false)
+      return c.json(await testCombo(comboId, input, config))
+    })
+  )
+
+  // ── Per-model status ──
+  router.get('/status', (c) => guard(c, async () => c.json({ status: await listStatus(config) })))
+
+  router.post('/status/activate', (c) =>
+    guard(c, async () => {
+      const { model } = validateModelStatusInput(await readJson(c))
+      return c.json({ status: await activateModel(model, config) })
+    })
+  )
+
+  router.post('/status/deactivate', (c) =>
+    guard(c, async () => {
+      const { model, reason } = validateModelStatusInput(await readJson(c))
+      return c.json({ status: await deactivateModel(model, reason, config) })
+    })
+  )
 
   return router
 }

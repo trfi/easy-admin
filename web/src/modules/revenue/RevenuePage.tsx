@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -18,16 +19,25 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatVnd, formatUsd } from '@/lib/format'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { TablePagination } from '@/components/TablePagination'
+import { formatVnd, formatUsd, formatDate } from '@/lib/format'
+import { RevenueChart } from './RevenueChart'
 import {
   useRevenue,
+  useRevenueSeries,
   type RevenueFilters,
   type PaymentStatus,
   type Currency,
   type PaymentGateway,
+  type SeriesInterval,
 } from './revenue.api'
 
 const ALL = 'all'
+const DEFAULT_LIMIT = 25
 
 const STATUS_VARIANT: Record<PaymentStatus, 'default' | 'secondary' | 'destructive'> = {
   Completed: 'default',
@@ -39,11 +49,29 @@ function formatAmount(amount: number, currency: Currency): string {
   return currency === 'USD' ? formatUsd(amount) : formatVnd(amount)
 }
 
+function SummaryCard({ title, value }: { title: string; value: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function RevenuePage() {
   const [filters, setFilters] = useState<RevenueFilters>({})
-  const { data, isLoading, isError, error } = useRevenue(filters)
+  const [page, setPage] = useState(1)
+  const [interval, setInterval] = useState<SeriesInterval>('month')
+
+  const { data, isLoading, isError, error, isFetching } = useRevenue(filters, page, DEFAULT_LIMIT)
+  const series = useRevenueSeries(filters, interval)
 
   function setFilter<K extends keyof RevenueFilters>(key: K, value: RevenueFilters[K]) {
+    setPage(1)
     setFilters((prev) => {
       const next = { ...prev }
       if (value) next[key] = value
@@ -51,6 +79,8 @@ export function RevenuePage() {
       return next
     })
   }
+
+  const summary = data?.summary
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,33 +90,33 @@ export function RevenuePage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Unified total (VND)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatVnd(data?.summary.unifiedVnd ?? 0)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">VND</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatVnd(data?.summary.byCurrency.VND ?? 0)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">USD</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatUsd(data?.summary.byCurrency.USD ?? 0)}</div>
-          </CardContent>
-        </Card>
+        <SummaryCard title="Unified total (VND)" value={formatVnd(summary?.unifiedVnd ?? 0)} />
+        <SummaryCard title="VND" value={formatVnd(summary?.byCurrency.VND ?? 0)} />
+        <SummaryCard title="USD" value={formatUsd(summary?.byCurrency.USD ?? 0)} />
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Revenue over time</CardTitle>
+          <ToggleGroup
+            type="single"
+            value={interval}
+            onValueChange={(v) => v && setInterval(v as SeriesInterval)}
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="day">Day</ToggleGroupItem>
+            <ToggleGroupItem value="month">Month</ToggleGroupItem>
+          </ToggleGroup>
+        </CardHeader>
+        <CardContent>
+          {series.isLoading ? (
+            <Skeleton className="h-[240px] w-full" />
+          ) : (
+            <RevenueChart points={series.data?.series ?? []} interval={interval} />
+          )}
+        </CardContent>
+      </Card>
 
       <div className="flex flex-wrap items-end gap-3">
         <Select
@@ -139,23 +169,56 @@ export function RevenuePage() {
           </SelectContent>
         </Select>
 
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="revenue-from" className="text-xs text-muted-foreground">
+            From
+          </Label>
+          <Input
+            id="revenue-from"
+            type="date"
+            className="w-40"
+            value={filters.from ?? ''}
+            onChange={(e) => setFilter('from', e.target.value || undefined)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="revenue-to" className="text-xs text-muted-foreground">
+            To
+          </Label>
+          <Input
+            id="revenue-to"
+            type="date"
+            className="w-40"
+            value={filters.to ?? ''}
+            onChange={(e) => setFilter('to', e.target.value || undefined)}
+          />
+        </div>
+
         {Object.keys(filters).length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setFilters({})}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFilters({})
+              setPage(1)
+            }}
+          >
             Clear
           </Button>
         )}
       </div>
 
-      {isLoading && <p className="text-muted-foreground">Loading payments…</p>}
       {isError && (
         <p className="text-destructive">Failed to load payments: {(error as Error).message}</p>
       )}
 
-      {data && (
+      <div className="flex flex-col gap-4">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
+              <TableHead>Payer</TableHead>
               <TableHead>Payment</TableHead>
               <TableHead>Gateway</TableHead>
               <TableHead>Reason</TableHead>
@@ -164,16 +227,37 @@ export function RevenuePage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.rows.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={7}>
+                    <Skeleton className="h-6 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : data && data.rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No payments match these filters.
                 </TableCell>
               </TableRow>
             ) : (
-              data.rows.map((p) => (
+              data?.rows.map((p) => (
                 <TableRow key={p._id}>
-                  <TableCell>{new Date(p.date).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatDate(p.date)}</TableCell>
+                  <TableCell>
+                    {p.payer ? (
+                      <Link
+                        to={`/users?id=${p.userId}`}
+                        className="font-medium hover:underline"
+                        title={p.payer.email}
+                      >
+                        {p.payer.name ?? p.payer.email ?? p.userId}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>{p.paymentName}</TableCell>
                   <TableCell>{p.paymentGateway}</TableCell>
                   <TableCell>{p.reason}</TableCell>
@@ -188,7 +272,17 @@ export function RevenuePage() {
             )}
           </TableBody>
         </Table>
-      )}
+
+        {data && data.total > 0 && (
+          <TablePagination
+            page={data.page}
+            limit={data.limit}
+            total={data.total}
+            onPageChange={setPage}
+            disabled={isFetching}
+          />
+        )}
+      </div>
     </div>
   )
 }

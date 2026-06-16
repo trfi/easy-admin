@@ -15,13 +15,30 @@ function renderPage() {
 }
 
 const PROVIDERS = [
-  { providerId: 'openai', name: 'OpenAI', baseURL: 'https://api.openai.com', active: true, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+  {
+    providerId: 'openai',
+    name: 'OpenAI',
+    baseURL: 'https://api.openai.com',
+    active: true,
+    configured: true,
+    hasApiKey: true,
+    apiKeyPreview: '••••1234',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
 ]
 const STATUS = [
-  { _id: 's1', providerId: 'openai', active: true, failureCount: 0 },
+  { model: 'openai/gpt-5', active: true, configured: true, failureCount: 0 },
 ]
 const COMBOS = [
-  { _id: 'c1', comboId: 'default', strategy: 'fallback', active: true, candidates: [{ providerId: 'openai', modelId: 'gpt-5', active: true }], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' },
+  {
+    comboId: 'default',
+    strategy: 'fallback',
+    active: true,
+    candidates: [{ providerId: 'openai', modelId: 'gpt-5', active: true }],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
 ]
 
 function jsonFor(url: string) {
@@ -46,13 +63,16 @@ afterEach(() => {
 })
 
 describe('AiPage', () => {
-  it('renders providers with live status', async () => {
+  it('renders providers and per-model status', async () => {
     renderPage()
     expect(await screen.findByText('OpenAI')).toBeInTheDocument()
+    expect(screen.getByText('configured')).toBeInTheDocument()
+    // Per-model status row shows the model and its health.
+    expect(await screen.findByText('openai/gpt-5')).toBeInTheDocument()
     expect(screen.getByText('healthy')).toBeInTheDocument()
   })
 
-  it('never references apiKey in any rendered text or request', async () => {
+  it('never references a raw apiKey in any rendered text or request', async () => {
     renderPage()
     await screen.findByText('OpenAI')
     expect(document.body.textContent).not.toMatch(/apiKey/i)

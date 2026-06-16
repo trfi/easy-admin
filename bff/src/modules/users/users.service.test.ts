@@ -3,7 +3,12 @@ import { ObjectId } from 'mongodb'
 import {
   buildUserSearchFilter,
   clampLimit,
+  clampPage,
   escapeRegex,
+  dayStart,
+  weekStart,
+  monthStart,
+  daysAgo,
 } from './users.service'
 import { toAdminUserView, type UserDoc } from '../../db/readModels'
 
@@ -46,10 +51,10 @@ describe('buildUserSearchFilter', () => {
 
 describe('clampLimit', () => {
   it('defaults when missing or invalid', () => {
-    expect(clampLimit(undefined)).toBe(50)
-    expect(clampLimit(0)).toBe(50)
-    expect(clampLimit(-5)).toBe(50)
-    expect(clampLimit(Number.NaN)).toBe(50)
+    expect(clampLimit(undefined)).toBe(25)
+    expect(clampLimit(0)).toBe(25)
+    expect(clampLimit(-5)).toBe(25)
+    expect(clampLimit(Number.NaN)).toBe(25)
   })
 
   it('caps at the maximum', () => {
@@ -58,6 +63,18 @@ describe('clampLimit', () => {
 
   it('floors fractional values within range', () => {
     expect(clampLimit(10.9)).toBe(10)
+  })
+})
+
+describe('clampPage', () => {
+  it('defaults to 1 when missing or invalid', () => {
+    expect(clampPage(undefined)).toBe(1)
+    expect(clampPage(0)).toBe(1)
+    expect(clampPage(-2)).toBe(1)
+  })
+
+  it('floors fractional pages', () => {
+    expect(clampPage(3.7)).toBe(3)
   })
 })
 
@@ -97,5 +114,41 @@ describe('toAdminUserView', () => {
 
   it('defaults avatar to null', () => {
     expect(toAdminUserView(baseDoc()).avatar).toBeNull()
+  })
+})
+
+describe('dayStart', () => {
+  it('returns midnight UTC of the given date', () => {
+    expect(dayStart(new Date('2026-06-16T14:30:00Z'))).toEqual(new Date('2026-06-16T00:00:00Z'))
+  })
+})
+
+describe('weekStart', () => {
+  it('returns Monday for a Tuesday', () => {
+    // 2026-06-16 is a Tuesday; week starts Monday 2026-06-15
+    expect(weekStart(new Date('2026-06-16T00:00:00Z'))).toEqual(new Date('2026-06-15T00:00:00Z'))
+  })
+
+  it('returns previous Monday for a Sunday', () => {
+    // 2026-06-21 is a Sunday
+    expect(weekStart(new Date('2026-06-21T00:00:00Z'))).toEqual(new Date('2026-06-15T00:00:00Z'))
+  })
+
+  it('returns itself when the input is Monday', () => {
+    expect(weekStart(new Date('2026-06-15T00:00:00Z'))).toEqual(new Date('2026-06-15T00:00:00Z'))
+  })
+})
+
+describe('monthStart', () => {
+  it('returns the first of the month at midnight UTC', () => {
+    expect(monthStart(new Date('2026-06-16T14:30:00Z'))).toEqual(new Date('2026-06-01T00:00:00Z'))
+  })
+})
+
+describe('daysAgo', () => {
+  it('returns midnight UTC N days before the given date', () => {
+    const now = new Date('2026-06-16T14:30:00Z')
+    expect(daysAgo(now, 1)).toEqual(new Date('2026-06-15T00:00:00Z'))
+    expect(daysAgo(now, 29)).toEqual(new Date('2026-05-18T00:00:00Z'))
   })
 })

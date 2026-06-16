@@ -89,7 +89,7 @@ export async function adjustPoints(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Service-Key': config.serviceKey,
+      'X-Admin-Secret': config.adminSecret,
     },
     body: JSON.stringify({
       amount: req.amount,

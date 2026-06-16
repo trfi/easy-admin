@@ -143,7 +143,7 @@ All routes under `/api`, all require `requireAuth` except login. JSON in/out.
 **User Management**
 - `GET  /api/users?search&plan&page&limit` → paginated superset user view
 - `GET  /api/users/:id` → single user detail
-- `POST /api/users/:id/points/adjust` `{ amount, mode: 'permanent'|'expiring', reason, expiresAt? }` → **proxies** to EasyQuiz api with `X-Service-Key`
+- `POST /api/users/:id/points/adjust` `{ amount, mode: 'permanent'|'expiring', reason, expiresAt? }` → **proxies** to EasyQuiz api with `X-Admin-Secret`
 
 **AI Management**
 - `GET   /api/ai/providers` → provider configs **with apiKey stripped**
@@ -157,7 +157,7 @@ All routes under `/api`, all require `requireAuth` except login. JSON in/out.
 A new endpoint in the EasyQuiz api repo (outside this working dir — treated as **ask first**).
 
 - **Route:** `POST /user/:id/points/adjust`
-- **Auth:** new `serviceAuth` middleware — compares `X-Service-Key` header to `env.SERVICE_KEY`, scoped to this route only. Does **not** use `authenticate`/`isAdmin` (avoids live-session coupling found in `session-auth.service.ts`).
+- **Auth:** new `serviceAuth` middleware — compares `X-Admin-Secret` header to `env.ADMIN_SECRET`, scoped to this route only. Does **not** use `authenticate`/`isAdmin` (avoids live-session coupling found in `session-auth.service.ts`).
 - **Body:** `{ amount: number, mode: 'permanent' | 'expiring', reason: string, type?: TransactionType, expiresAt?: string }`
 - **Amount rules (MVP):** positive only (`amount > 0`), max **10,000** per adjustment. No deductions — negative/zero amounts are rejected at the BFF boundary before the call is made, and again at the endpoint.
 - **Behavior:** thin wrapper over existing `apps/api/src/services/points.service.ts`:
@@ -215,7 +215,7 @@ export interface AdminUserView {
 - Reimplement points/expiration money logic in the BFF — always proxy.
 - Write to `payment-history` or `point-transaction` from the BFF.
 - Read revenue from `point-transaction` (365-day TTL → silent data loss).
-- Commit `SERVICE_KEY`, `MONGODB_URI`, JWT secret, or admin credential.
+- Commit `ADMIN_SECRET`, `MONGODB_URI`, JWT secret, or admin credential.
 
 ## Success Criteria
 

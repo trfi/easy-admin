@@ -1,49 +1,52 @@
 import { describe, expect, it } from 'vitest'
-import { ObjectId } from 'mongodb'
-import { toAiProviderView } from './ai.service'
-import type { AiProviderDoc } from '../../db/readModels'
+import { toProviderView } from './ai.service'
 
-function providerDoc(overrides: Partial<AiProviderDoc> = {}): AiProviderDoc {
+// Hepi already strips apiKey server-side, but R3 says the BFF must be the place a
+// provider object becomes a client view — and it must never let a raw apiKey
+// through even if Hepi regressed. toProviderView re-maps fields explicitly
+// (never spreads), so an unexpected apiKey on the input is dropped.
+function hepiProviderDto(overrides: Record<string, unknown> = {}) {
   return {
-    _id: new ObjectId(),
     providerId: 'openai',
     name: 'OpenAI',
-    apiKey: 'sk-super-secret-do-not-leak',
     baseURL: 'https://api.openai.com/v1',
     active: true,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-02'),
+    configured: true,
+    hasApiKey: true,
+    apiKeyPreview: '••••1234',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
     ...overrides,
   }
 }
 
-describe('toAiProviderView — R3 apiKey strip', () => {
-  it('omits apiKey from the view', () => {
-    const view = toAiProviderView(providerDoc())
-    expect('apiKey' in view).toBe(false)
-  })
-
-  it('keeps the non-secret fields', () => {
-    const view = toAiProviderView(providerDoc())
+describe('toProviderView — R3 apiKey strip', () => {
+  it('keeps the non-secret fields including the masked preview', () => {
+    const view = toProviderView(hepiProviderDto())
     expect(view).toEqual({
       providerId: 'openai',
       name: 'OpenAI',
       baseURL: 'https://api.openai.com/v1',
       active: true,
-      createdAt: new Date('2026-01-01'),
-      updatedAt: new Date('2026-01-02'),
+      configured: true,
+      hasApiKey: true,
+      apiKeyPreview: '••••1234',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
     })
   })
 
-  it('the serialized payload never contains the secret value', () => {
-    const view = toAiProviderView(providerDoc({ apiKey: 'sk-leak-canary-12345' }))
+  it('drops a raw apiKey if one ever leaks from upstream', () => {
+    const view = toProviderView(hepiProviderDto({ apiKey: 'sk-leak-canary-12345' }))
+    expect('apiKey' in view).toBe(false)
     const serialized = JSON.stringify(view)
     expect(serialized).not.toContain('sk-leak-canary-12345')
-    expect(serialized).not.toContain('apiKey')
+    expect(serialized).not.toContain('"apiKey"')
   })
 
-  it('strips apiKey even when other secret-ish keys vary', () => {
-    const view = toAiProviderView(providerDoc({ apiKey: '' }))
-    expect('apiKey' in view).toBe(false)
+  it('passes through an undefined preview when the provider has no key', () => {
+    const view = toProviderView(hepiProviderDto({ hasApiKey: false, apiKeyPreview: undefined }))
+    expect(view.hasApiKey).toBe(false)
+    expect(view.apiKeyPreview).toBeUndefined()
   })
 })

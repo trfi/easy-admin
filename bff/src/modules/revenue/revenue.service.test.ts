@@ -1,27 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import { ObjectId } from 'mongodb'
 import {
   buildRevenueFilter,
-  summarizeRevenue,
+  clampLimit,
+  clampPage,
+  collapseSeries,
+  summarizeGroups,
   toUnifiedVnd,
+  type CurrencyGroup,
   type RevenueFilter,
 } from './revenue.service'
-import type { PaymentView } from '../../db/readModels'
-
-function payment(overrides: Partial<PaymentView> = {}): PaymentView {
-  return {
-    _id: '000000000000000000000000',
-    userId: '111111111111111111111111',
-    amount: 1000,
-    currency: 'VND',
-    date: new Date('2026-06-01T00:00:00Z'),
-    type: 'Deposit',
-    reason: 'Top-up',
-    status: 'Completed',
-    paymentGateway: 'Bank',
-    paymentName: 'test',
-    ...overrides,
-  }
-}
 
 const RATE = 26309
 
@@ -35,7 +23,7 @@ describe('toUnifiedVnd', () => {
   })
 
   it('rounds the result to an integer', () => {
-    expect(toUnifiedVnd({ VND: 0, USD: 1.5 }, 26309)).toBe(Math.round(1.5 * 26309))
+    expect(toUnifiedVnd({ VND: 0, USD: 1.5 }, RATE)).toBe(Math.round(1.5 * RATE))
   })
 
   it('handles all-zero totals', () => {
@@ -43,31 +31,24 @@ describe('toUnifiedVnd', () => {
   })
 })
 
-describe('summarizeRevenue', () => {
-  it('splits totals by currency', () => {
-    const summary = summarizeRevenue(
-      [
-        payment({ currency: 'VND', amount: 1000 }),
-        payment({ currency: 'VND', amount: 500 }),
-        payment({ currency: 'USD', amount: 3 }),
-      ],
-      RATE
-    )
+describe('summarizeGroups', () => {
+  it('splits totals by currency and sums counts', () => {
+    const groups: CurrencyGroup[] = [
+      { currency: 'VND', total: 1500, count: 2 },
+      { currency: 'USD', total: 3, count: 1 },
+    ]
+    const summary = summarizeGroups(groups, RATE)
     expect(summary.byCurrency).toEqual({ VND: 1500, USD: 3 })
     expect(summary.count).toBe(3)
+    expect(summary.unifiedVnd).toBe(1500 + 3 * RATE)
   })
 
-  it('computes unifiedVnd from the split totals', () => {
-    const summary = summarizeRevenue(
-      [payment({ currency: 'VND', amount: 1000 }), payment({ currency: 'USD', amount: 2 })],
-      RATE
-    )
-    expect(summary.unifiedVnd).toBe(1000 + 2 * RATE)
-  })
-
-  it('returns zeroed totals for an empty list', () => {
-    const summary = summarizeRevenue([], RATE)
-    expect(summary).toEqual({ byCurrency: { VND: 0, USD: 0 }, unifiedVnd: 0, count: 0 })
+  it('returns zeroed totals for an empty group list', () => {
+    expect(summarizeGroups([], RATE)).toEqual({
+      byCurrency: { VND: 0, USD: 0 },
+      unifiedVnd: 0,
+      count: 0,
+    })
   })
 })
 
@@ -85,6 +66,17 @@ describe('buildRevenueFilter', () => {
     })
   })
 
+  it('maps a valid userId to an ObjectId on the user field', () => {
+    const id = '507f1f77bcf86cd799439011'
+    const built = buildRevenueFilter({ userId: id })
+    expect(built.user).toBeInstanceOf(ObjectId)
+    expect((built.user as ObjectId).toHexString()).toBe(id)
+  })
+
+  it('ignores an invalid userId', () => {
+    expect(buildRevenueFilter({ userId: 'not-an-id' })).toEqual({})
+  })
+
   it('builds a date range with both bounds', () => {
     const from = new Date('2026-01-01')
     const to = new Date('2026-02-01')
@@ -99,5 +91,53 @@ describe('buildRevenueFilter', () => {
   it('builds a date range with only an upper bound', () => {
     const to = new Date('2026-02-01')
     expect(buildRevenueFilter({ to })).toEqual({ date: { $lte: to } })
+  })
+})
+
+describe('clampPage / clampLimit', () => {
+  it('defaults page to 1 and floors fractional pages', () => {
+    expect(clampPage(undefined)).toBe(1)
+    expect(clampPage(0)).toBe(1)
+    expect(clampPage(-3)).toBe(1)
+    expect(clampPage(2.9)).toBe(2)
+  })
+
+  it('defaults limit and caps at the max', () => {
+    expect(clampLimit(undefined)).toBe(25)
+    expect(clampLimit(0)).toBe(25)
+    expect(clampLimit(50)).toBe(50)
+    expect(clampLimit(9999)).toBe(200)
+  })
+})
+
+describe('collapseSeries', () => {
+  it('collapses per-currency rows into one point per period', () => {
+    const points = collapseSeries(
+      [
+        { period: '2026-05', currency: 'VND', total: 1000, count: 2 },
+        { period: '2026-05', currency: 'USD', total: 2, count: 1 },
+        { period: '2026-06', currency: 'VND', total: 500, count: 1 },
+      ],
+      RATE
+    )
+    expect(points).toEqual([
+      { period: '2026-05', VND: 1000, USD: 2, unifiedVnd: 1000 + 2 * RATE, count: 3 },
+      { period: '2026-06', VND: 500, USD: 0, unifiedVnd: 500, count: 1 },
+    ])
+  })
+
+  it('sorts periods ascending', () => {
+    const points = collapseSeries(
+      [
+        { period: '2026-06', currency: 'VND', total: 1, count: 1 },
+        { period: '2026-01', currency: 'VND', total: 1, count: 1 },
+      ],
+      RATE
+    )
+    expect(points.map((p) => p.period)).toEqual(['2026-01', '2026-06'])
+  })
+
+  it('returns an empty array for no data', () => {
+    expect(collapseSeries([], RATE)).toEqual([])
   })
 })

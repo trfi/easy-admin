@@ -2,17 +2,26 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../../app'
 import type { DbHandle } from '../../db/client'
 import type { Config } from '../../config'
-import { searchUsers, getUserById } from './users.service'
+import { searchUsers, getUserById, getUserStats } from './users.service'
 
 export function usersRoutes(db: DbHandle, _config: Config): Hono<AppEnv> {
   const router = new Hono<AppEnv>()
 
   router.get('/', async (c) => {
     const q = c.req.query('q')
+    const pageRaw = c.req.query('page')
     const limitRaw = c.req.query('limit')
-    const limit = limitRaw ? Number(limitRaw) : undefined
-    const users = await searchUsers(db, { q, limit })
-    return c.json({ users })
+    const result = await searchUsers(db, {
+      q,
+      page: pageRaw ? Number(pageRaw) : undefined,
+      limit: limitRaw ? Number(limitRaw) : undefined,
+    })
+    return c.json(result)
+  })
+
+  router.get('/stats', async (c) => {
+    const stats = await getUserStats(db)
+    return c.json(stats)
   })
 
   router.get('/:id', async (c) => {

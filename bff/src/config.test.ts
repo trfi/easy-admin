@@ -6,8 +6,9 @@ const validEnv = {
   JWT_SECRET: 'a-long-random-secret',
   ADMIN_USERNAME: 'admin',
   ADMIN_PASSWORD: 'admin',
-  SERVICE_KEY: 'shared-secret',
   EASY_API_URL: 'https://api.easyquiz.cc',
+  HEPI_API_URL: 'https://api.hepi.cc',
+  ADMIN_SECRET: 'hepi-admin-secret',
   USD_TO_VND_RATE: '26309',
   PORT: '3010',
 }
@@ -32,13 +33,20 @@ describe('loadConfig', () => {
     )
   })
 
+  it('strips trailing slashes from hepiApiUrl', () => {
+    expect(loadConfig({ ...validEnv, HEPI_API_URL: 'https://api.hepi.cc/' }).hepiApiUrl).toBe(
+      'https://api.hepi.cc'
+    )
+  })
+
   it.each([
     'MONGODB_URI',
     'JWT_SECRET',
     'ADMIN_USERNAME',
     'ADMIN_PASSWORD',
-    'SERVICE_KEY',
     'EASY_API_URL',
+    'HEPI_API_URL',
+    'ADMIN_SECRET',
   ])('throws when required key %s is missing', (key) => {
     const env = { ...validEnv, [key]: '' }
     expect(() => loadConfig(env)).toThrow(/Missing required environment variables/)

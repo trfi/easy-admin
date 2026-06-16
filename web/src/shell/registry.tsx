@@ -18,7 +18,7 @@ export interface AdminModule {
 // entry here + one folder under modules/ — no edits to Sidebar, AppShell, or router.
 export const MODULES: AdminModule[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/', element: OverviewPage },
-  { id: 'revenue', label: 'Revenue', icon: DollarSign, path: '/revenue', element: RevenuePage },
   { id: 'users', label: 'Users', icon: Users, path: '/users', element: UsersPage },
+  { id: 'revenue', label: 'Revenue', icon: DollarSign, path: '/revenue', element: RevenuePage },
   { id: 'ai', label: 'AI Management', icon: Cpu, path: '/ai', element: AiPage },
 ]

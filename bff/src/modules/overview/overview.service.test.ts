@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import type { AiProviderStatusDoc } from '../../db/readModels'
 import { monthStart, activeSince, summarizeAiHealth } from './overview.service'
 
 describe('monthStart', () => {
@@ -32,8 +31,8 @@ describe('activeSince', () => {
 })
 
 describe('summarizeAiHealth', () => {
-  function status(active: boolean): AiProviderStatusDoc {
-    return { active } as AiProviderStatusDoc
+  function status(active: boolean): { active: boolean } {
+    return { active }
   }
 
   it('counts total, active, and disabled', () => {

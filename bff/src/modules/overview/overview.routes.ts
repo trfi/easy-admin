@@ -8,7 +8,7 @@ export function overviewRoutes(db: DbHandle, config: Config): Hono<AppEnv> {
   const router = new Hono<AppEnv>()
 
   router.get('/', async (c) => {
-    const overview = await getOverview(db, config.usdToVndRate)
+    const overview = await getOverview(db, config)
     return c.json(overview)
   })
 

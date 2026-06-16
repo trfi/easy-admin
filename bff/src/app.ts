@@ -45,7 +45,7 @@ export function createApp(config: Config, db?: DbHandle): Hono<AppEnv> {
     app.route('/api/revenue', revenueRoutes(db, config))
     app.route('/api/users', adjustRoutes(config))
     app.route('/api/users', usersRoutes(db, config))
-    app.route('/api/ai', aiRoutes(db))
+    app.route('/api/ai', aiRoutes(config))
   }
 
   return app

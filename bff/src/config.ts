@@ -3,8 +3,9 @@ export interface Config {
   jwtSecret: string
   adminUsername: string
   adminPassword: string
-  serviceKey: string
   easyApiUrl: string
+  hepiApiUrl: string
+  adminSecret: string
   usdToVndRate: number
   port: number
 }
@@ -14,8 +15,9 @@ const REQUIRED = [
   'JWT_SECRET',
   'ADMIN_USERNAME',
   'ADMIN_PASSWORD',
-  'SERVICE_KEY',
   'EASY_API_URL',
+  'HEPI_API_URL',
+  'ADMIN_SECRET',
 ] as const
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -39,8 +41,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     jwtSecret: env.JWT_SECRET!,
     adminUsername: env.ADMIN_USERNAME!,
     adminPassword: env.ADMIN_PASSWORD!,
-    serviceKey: env.SERVICE_KEY!,
     easyApiUrl: env.EASY_API_URL!.replace(/\/+$/, ''),
+    hepiApiUrl: env.HEPI_API_URL!.replace(/\/+$/, ''),
+    adminSecret: env.ADMIN_SECRET!,
     usdToVndRate: rate,
     port,
   }

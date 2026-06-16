@@ -54,15 +54,19 @@ The four modules are `overview`, `revenue`, `users`, `ai`. Frontend and backend 
 
 ### Backend layering (strict)
 
-`routes` (HTTP/Hono) → `service` (business logic + Mongo) → `readModels` (types + `toXView` mappers). Raw Mongo docs (`UserDoc`, `PaymentDoc`, `AiProviderDoc`) are mapped to view types (`AdminUserView`, `PaymentView`, `AiProviderView`) at the service boundary via the `toXView` functions in `bff/src/db/readModels.ts`. Never pass raw Mongo docs across to routes.
+`routes` (HTTP/Hono) → `service` (business logic + Mongo) → `readModels` (types + `toXView` mappers). Raw Mongo docs (`UserDoc`, `PaymentDoc`) are mapped to view types (`AdminUserView`, `PaymentView`) at the service boundary via the `toXView` functions in `bff/src/db/readModels.ts`. Never pass raw Mongo docs across to routes.
 
-The BFF **owns its own read models** over the shared collections. It never imports the apps' Mongoose models and uses the native `mongodb` driver directly. Collection names in `readModels.ts` `COLLECTIONS` are Mongoose's default pluralizations (e.g. `aiproviderconfigs`) — verified against both source repos, do not guess.
+The BFF **owns its own read models** over the shared collections. It never imports the apps' Mongoose models and uses the native `mongodb` driver directly. Collection names in `readModels.ts` `COLLECTIONS` are Mongoose's default pluralizations (e.g. `paymenthistories`) — verified against both source repos, do not guess.
+
+### AI config is owned by Hepi, not the BFF
+
+The `ai` module does **not** read or write the AI-config collections. Every provider/combo operation (list, create, update, delete, reorder, and live test) proxies to Hepi's `/ai-models` admin API via `bff/src/lib/hepiClient.ts`, authenticated with an `X-Admin-Secret` header. Hepi serves that config from a 60s in-memory cache and owns all write invariants (provider-referenced-by-combo guards, duplicate-candidate detection, soft-delete) plus the live-test path (only Hepi has the AI SDK). The BFF validates input at its boundary first (`ai.validate.ts`, mirroring Hepi's zod schemas) so bad requests fail fast. This is the same pattern as the points-adjust proxy to EasyQuiz.
 
 ### Hard boundaries (these are load-bearing, not style)
 
-- **`apiKey` stripping**: `aiproviderconfigs` stores API keys in plaintext. `toAiProviderView` in `bff/src/modules/ai/ai.service.ts` is the *only* place keys are dropped, and every provider response must route through it. Never return or log `apiKey`.
-- **DB write guard**: `bff/src/db/client.ts` wraps every collection in a Proxy (`guardCollection`) that throws `WriteNotAllowedError` on any write op unless the collection is in `WRITABLE_COLLECTIONS` (`aiproviderconfigs`, `aimodelcomboconfigs`). The BFF may only write AI config.
-- **Points are never mutated locally**: point adjustments proxy to the external EasyQuiz API (`POST /user/:id/points/adjust` with an `X-Service-Key` header) — see `bff/src/modules/users/adjust.service.ts`. The money logic + transaction logging live in EasyQuiz, not here. Validate at the BFF boundary first (positive only, max `MAX_ADJUSTMENT` = 10000).
+- **`apiKey` stripping**: Hepi never returns a raw `apiKey` (only a masked `apiKeyPreview`). `toProviderView` in `bff/src/modules/ai/ai.service.ts` is the *only* place a Hepi provider DTO crosses into a BFF view, and it re-maps fields explicitly (never spreads) so even a future Hepi change couldn't leak a raw key. Never return or log `apiKey`.
+- **DB write guard**: `bff/src/db/client.ts` wraps every collection in a Proxy (`guardCollection`) that throws `WriteNotAllowedError` on any write op. `WRITABLE_COLLECTIONS` is empty — the BFF is fully read-only over Mongo. All writes proxy to EasyQuiz (points) or Hepi (AI config).
+- **Points are never mutated locally**: point adjustments proxy to the external EasyQuiz API (`POST /user/:id/points/adjust` with an `X-Admin-Secret` header) — see `bff/src/modules/users/adjust.service.ts`. The money logic + transaction logging live in EasyQuiz, not here. Validate at the BFF boundary first (positive only, max `MAX_ADJUSTMENT` = 10000).
 - **Revenue reads `paymenthistories` only**, never `pointtransactions` (which has a 365-day TTL → silent data loss). The currency conversion rule lives in `toUnifiedVnd` (`revenue.service.ts`) and nowhere else; the rate comes from `config.usdToVndRate`, never inlined.
 
 ### Config & auth
@@ -85,10 +89,10 @@ TypeScript throughout, strict mode with `noUncheckedIndexedAccess` and `verbatim
 
 ## Testing
 
-vitest for both workspaces; React Testing Library + jsdom for components (`web/src/test/setup.ts`). Highest-priority coverage is the money math (`summarizeRevenue` / `toUnifiedVnd`), auth accept/reject paths, and the points-adjust proxy (tested against a mocked EasyQuiz endpoint, not the real service). The adjust-points form is the only write UX and has interaction tests.
+vitest for both workspaces; React Testing Library + jsdom for components (`web/src/test/setup.ts`, which polyfills `ResizeObserver` for recharts). Highest-priority coverage is the money math (`summarizeGroups` / `toUnifiedVnd` / `collapseSeries`), auth accept/reject paths, the points-adjust proxy and the AI Hepi proxy (both tested against a mocked upstream, not the real service), and the BFF boundary validators (`ai.validate.ts`). Write UX (adjust-points form, provider/combo CRUD dialogs) has interaction tests.
 
 ## Ask first
 
-- Any change to the EasyQuiz repo (the `serviceAuth` middleware + `/points/adjust` route) — it's a separate repo.
-- Any schema/index change to the shared Mongo, or any direct write to a collection other than the two AI-config collections.
+- Any change to the EasyQuiz repo (the `serviceAuth` middleware + `/points/adjust` route) or the Hepi repo (the `/ai-models` admin API + its `X-Admin-Secret` guard) — both are separate repos.
+- Any schema/index change to the shared Mongo, or any direct write to a Mongo collection (the BFF is read-only; AI config writes go through Hepi).
 - Adding dependencies beyond the existing stack.
