@@ -190,10 +190,9 @@ export interface AdminUserView {
 
 ## Testing Strategy
 
-- **Framework:** vitest (BFF + frontend units), React Testing Library (components).
+- **Framework:** vitest (BFF only).
 - **BFF priority — the money math:** `revenue` aggregation and `toUnifiedVnd` conversion get unit tests with multi-currency fixtures. Auth (login + `requireAuth`) gets tests for reject/accept paths. The points-adjust proxy is tested against a mocked EasyQuiz endpoint (request shape + error propagation), not the real service.
-- **Frontend:** smoke-render each module; the points-adjust form (the only write UX) gets interaction tests including the "save key unchanged" / validation paths.
-- **Out of MVP:** e2e/Playwright.
+- **Out of MVP:** frontend tests, e2e/Playwright.
 - **Coverage expectation:** 100% on currency conversion and revenue aggregation; reasonable on the rest.
 
 ## Boundaries

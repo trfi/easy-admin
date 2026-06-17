@@ -26,11 +26,10 @@ cd bff && bun run dev                # Hono on Bun, watch mode, serves :3010
 cd web && bun run build              # tsc -b && vite build → web/dist
 ```
 
-Run a single test file or test:
+Run a single test file:
 
 ```
 cd bff && bunx vitest run src/modules/revenue/revenue.service.test.ts
-cd web && bunx vitest run -t "adjust points"     # filter by test name
 ```
 
 Docker (single image serves both frontend and `/api`):

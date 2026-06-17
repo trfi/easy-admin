@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toProviderView } from './ai.service'
+import { toProviderView, toSelectableModelView } from './ai.service'
 
 // Hepi already strips apiKey server-side, but R3 says the BFF must be the place a
 // provider object becomes a client view — and it must never let a raw apiKey

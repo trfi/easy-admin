@@ -116,6 +116,7 @@ export interface ComboTestInput {
 const PROVIDERS_KEY = ['ai', 'providers'] as const
 const COMBOS_KEY = ['ai', 'combos'] as const
 const STATUS_KEY = ['ai', 'status'] as const
+const SELECTABLE_MODELS_KEY = ['ai', 'selectable-models'] as const
 
 // ── Queries ──
 export function useProviders() {
@@ -307,5 +308,82 @@ export function useTestCombo() {
         method: 'POST',
         body: JSON.stringify(input),
       }),
+  })
+}
+
+export interface SelectableModelView {
+  id: string
+  label: string
+  points: number
+  accessTier: string
+  supportsImage: boolean
+  comboId: string
+  active: boolean
+  sortOrder: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface SelectableModelCreateInput {
+  id: string
+  label: string
+  points: number
+  accessTier: string
+  supportsImage: boolean
+  comboId: string
+  active?: boolean
+  sortOrder?: number
+}
+
+export interface SelectableModelUpdateInput {
+  id?: string
+  label?: string
+  points?: number
+  accessTier?: string
+  supportsImage?: boolean
+  comboId?: string
+  active?: boolean
+  sortOrder?: number
+}
+
+export function useSelectableModels() {
+  return useQuery({
+    queryKey: SELECTABLE_MODELS_KEY,
+    queryFn: () => apiFetch<{ models: SelectableModelView[] }>('/ai/selectable-models'),
+  })
+}
+
+export function useCreateSelectableModel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: SelectableModelCreateInput) =>
+      apiFetch<{ model: SelectableModelView }>('/ai/selectable-models', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SELECTABLE_MODELS_KEY }),
+  })
+}
+
+export function useUpdateSelectableModel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: SelectableModelUpdateInput }) =>
+      apiFetch<{ model: SelectableModelView }>(`/ai/selectable-models/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SELECTABLE_MODELS_KEY }),
+  })
+}
+
+export function useDeleteSelectableModel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ success: boolean }>(`/ai/selectable-models/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SELECTABLE_MODELS_KEY }),
   })
 }

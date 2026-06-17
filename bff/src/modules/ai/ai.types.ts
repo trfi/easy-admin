@@ -71,3 +71,17 @@ export interface ComboTestResponse {
   candidate: AiModelComboCandidate | null
   result: AiTestResult
 }
+
+// User-facing selectable model config. Proxied from Hepi /ai-models/selectable.
+export interface SelectableModelView {
+  id: string
+  label: string
+  points: number
+  accessTier: string        // opaque string — Hepi owns the enum
+  supportsImage: boolean
+  comboId: string
+  active: boolean
+  sortOrder: number
+  createdAt?: string
+  updatedAt?: string
+}

@@ -6,6 +6,7 @@ import type {
   AiProviderView,
   ComboTestResponse,
   ProviderTestResponse,
+  SelectableModelView,
 } from './ai.types'
 import type {
   ComboCreateInput,
@@ -13,6 +14,8 @@ import type {
   ComboUpdateInput,
   ProviderCreateInput,
   ProviderUpdateInput,
+  SelectableModelCreateInput,
+  SelectableModelUpdateInput,
   TestInput,
 } from './ai.validate'
 
@@ -215,4 +218,72 @@ export async function deactivateModel(
     config
   )
   return status
+}
+
+// ── Selectable models (user-facing model list) ──
+
+interface HepiSelectableModelDto {
+  id: string
+  label: string
+  points: number
+  accessTier: string
+  supportsImage: boolean
+  comboId: string
+  active: boolean
+  sortOrder: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export function toSelectableModelView(dto: HepiSelectableModelDto): SelectableModelView {
+  return {
+    id: dto.id,
+    label: dto.label,
+    points: dto.points,
+    accessTier: dto.accessTier,
+    supportsImage: dto.supportsImage,
+    comboId: dto.comboId,
+    active: dto.active,
+    sortOrder: dto.sortOrder,
+    createdAt: dto.createdAt,
+    updatedAt: dto.updatedAt,
+  }
+}
+
+export async function listSelectableModels(config: Config): Promise<SelectableModelView[]> {
+  const { models } = await hepiRequest<{ models: HepiSelectableModelDto[] }>(
+    { method: 'GET', path: '/ai-models/selectable' },
+    config
+  )
+  return models.map(toSelectableModelView)
+}
+
+export async function createSelectableModel(
+  input: SelectableModelCreateInput,
+  config: Config
+): Promise<SelectableModelView> {
+  const { model } = await hepiRequest<{ model: HepiSelectableModelDto }>(
+    { method: 'POST', path: '/ai-models/selectable', body: input },
+    config
+  )
+  return toSelectableModelView(model)
+}
+
+export async function updateSelectableModel(
+  id: string,
+  input: SelectableModelUpdateInput,
+  config: Config
+): Promise<SelectableModelView> {
+  const { model } = await hepiRequest<{ model: HepiSelectableModelDto }>(
+    { method: 'PATCH', path: `/ai-models/selectable/${encodeURIComponent(id)}`, body: input },
+    config
+  )
+  return toSelectableModelView(model)
+}
+
+export async function deleteSelectableModel(id: string, config: Config): Promise<void> {
+  await hepiRequest<{ success: boolean }>(
+    { method: 'DELETE', path: `/ai-models/selectable/${encodeURIComponent(id)}` },
+    config
+  )
 }

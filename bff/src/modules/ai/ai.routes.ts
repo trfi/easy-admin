@@ -15,6 +15,9 @@ import {
   validateProviderCreate,
   validateProviderId,
   validateProviderUpdate,
+  validateSelectableModelCreate,
+  validateSelectableModelId,
+  validateSelectableModelUpdate,
   validateTest,
 } from './ai.validate'
 import {
@@ -23,17 +26,21 @@ import {
   removeComboCandidate,
   createCombo,
   createProvider,
+  createSelectableModel,
   deactivateModel,
   deleteCombo,
   deleteProvider,
+  deleteSelectableModel,
   listCombos,
   listProviders,
+  listSelectableModels,
   listStatus,
   reorderComboCandidate,
   testCombo,
   testProvider,
   updateCombo,
   updateProvider,
+  updateSelectableModel,
 } from './ai.service'
 
 // Run a handler that may throw AiValidationError (→400) or HepiUpstreamError
@@ -171,6 +178,34 @@ export function aiRoutes(config: Config): Hono<AppEnv> {
     guard(c, async () => {
       const { model, reason } = validateModelStatusInput(await readJson(c))
       return c.json({ status: await deactivateModel(model, reason, config) })
+    })
+  )
+
+  // ── Selectable models ──
+  router.get('/selectable-models', (c) =>
+    guard(c, async () => c.json({ models: await listSelectableModels(config) }))
+  )
+
+  router.post('/selectable-models', (c) =>
+    guard(c, async () => {
+      const input = validateSelectableModelCreate(await readJson(c))
+      return c.json({ model: await createSelectableModel(input, config) }, 201)
+    })
+  )
+
+  router.patch('/selectable-models/:id', (c) =>
+    guard(c, async () => {
+      const id = validateSelectableModelId(c.req.param('id'))
+      const input = validateSelectableModelUpdate(await readJson(c))
+      return c.json({ model: await updateSelectableModel(id, input, config) })
+    })
+  )
+
+  router.delete('/selectable-models/:id', (c) =>
+    guard(c, async () => {
+      const id = validateSelectableModelId(c.req.param('id'))
+      await deleteSelectableModel(id, config)
+      return c.json({ success: true })
     })
   )
 

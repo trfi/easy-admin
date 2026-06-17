@@ -219,6 +219,91 @@ export function validateModelStatusInput(
   return { model, reason: requireString(input.reason, 'reason', 500) }
 }
 
+export function validateSelectableModelId(value: unknown): string {
+  return requireString(value, 'id', 200)
+}
+
+export interface SelectableModelCreateInput {
+  id: string
+  label: string
+  points: number
+  accessTier: string
+  supportsImage: boolean
+  comboId: string
+  active?: boolean
+  sortOrder?: number
+}
+
+export interface SelectableModelUpdateInput {
+  id?: string
+  label?: string
+  points?: number
+  accessTier?: string
+  supportsImage?: boolean
+  comboId?: string
+  active?: boolean
+  sortOrder?: number
+}
+
+function requireNonNegativeInt(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new AiValidationError(`${field} must be a non-negative integer`)
+  }
+  return value
+}
+
+export function validateSelectableModelCreate(
+  input: Record<string, unknown>
+): SelectableModelCreateInput {
+  const result: SelectableModelCreateInput = {
+    id: requireString(input.id, 'id', 200),
+    label: requireString(input.label, 'label', 200),
+    points: requireNonNegativeInt(input.points, 'points'),
+    accessTier: requireString(input.accessTier, 'accessTier', 80),
+    supportsImage: (() => {
+      if (typeof input.supportsImage !== 'boolean')
+        throw new AiValidationError('supportsImage must be a boolean')
+      return input.supportsImage
+    })(),
+    comboId: requireString(input.comboId, 'comboId', 200),
+  }
+  if (input.active !== undefined) {
+    if (typeof input.active !== 'boolean') throw new AiValidationError('active must be a boolean')
+    result.active = input.active
+  }
+  if (input.sortOrder !== undefined) {
+    result.sortOrder = requireNonNegativeInt(input.sortOrder, 'sortOrder')
+  }
+  return result
+}
+
+export function validateSelectableModelUpdate(
+  input: Record<string, unknown>
+): SelectableModelUpdateInput {
+  const result: SelectableModelUpdateInput = {}
+  if (input.id !== undefined) result.id = requireString(input.id, 'id', 200)
+  if (input.label !== undefined) result.label = requireString(input.label, 'label', 200)
+  if (input.points !== undefined) result.points = requireNonNegativeInt(input.points, 'points')
+  if (input.accessTier !== undefined)
+    result.accessTier = requireString(input.accessTier, 'accessTier', 80)
+  if (input.supportsImage !== undefined) {
+    if (typeof input.supportsImage !== 'boolean')
+      throw new AiValidationError('supportsImage must be a boolean')
+    result.supportsImage = input.supportsImage
+  }
+  if (input.comboId !== undefined) result.comboId = requireString(input.comboId, 'comboId', 200)
+  if (input.active !== undefined) {
+    if (typeof input.active !== 'boolean') throw new AiValidationError('active must be a boolean')
+    result.active = input.active
+  }
+  if (input.sortOrder !== undefined)
+    result.sortOrder = requireNonNegativeInt(input.sortOrder, 'sortOrder')
+  if (Object.keys(result).length === 0) {
+    throw new AiValidationError('At least one field is required')
+  }
+  return result
+}
+
 export interface TestInput {
   model?: string
   prompt?: string
