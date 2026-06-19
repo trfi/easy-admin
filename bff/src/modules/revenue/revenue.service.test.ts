@@ -7,6 +7,8 @@ import {
   collapseSeries,
   summarizeGroups,
   toUnifiedVnd,
+  monthStart,
+  todayStart,
   type CurrencyGroup,
   type RevenueFilter,
 } from './revenue.service'
@@ -139,5 +141,17 @@ describe('collapseSeries', () => {
 
   it('returns an empty array for no data', () => {
     expect(collapseSeries([], RATE)).toEqual([])
+  })
+})
+
+describe('monthStart / todayStart', () => {
+  it('returns the first instant of the current month in UTC', () => {
+    const d = new Date('2026-06-19T13:56:10Z')
+    expect(monthStart(d).toISOString()).toBe('2026-06-01T00:00:00.000Z')
+  })
+
+  it('returns the first instant of today in UTC', () => {
+    const d = new Date('2026-06-19T13:56:10Z')
+    expect(todayStart(d).toISOString()).toBe('2026-06-19T00:00:00.000Z')
   })
 })

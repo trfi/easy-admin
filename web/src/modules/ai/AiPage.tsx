@@ -28,6 +28,7 @@ import { ComboDialog } from './ComboDialog'
 import { StatusRow } from './StatusRow'
 import { SelectableModelRow } from './SelectableModelRow'
 import { SelectableModelDialog } from './SelectableModelDialog'
+import { ModelDefaultsPanel } from './ModelDefaultsPanel'
 
 export function AiPage() {
   const providers = useProviders()
@@ -78,7 +79,7 @@ export function AiPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">AI Management</h2>
         <p className="text-sm text-muted-foreground">
-          Providers, model combos, and live status. Config proxies to Hepi; API keys are never exposed.
+          Providers, model combos, defaults, and live status. Config proxies to Hepi; API keys are never exposed.
         </p>
       </div>
 
@@ -88,6 +89,7 @@ export function AiPage() {
           <TabsTrigger value="combos">Model combos</TabsTrigger>
           <TabsTrigger value="status">Model status</TabsTrigger>
           <TabsTrigger value="models">Selectable models</TabsTrigger>
+          <TabsTrigger value="defaults">Model defaults</TabsTrigger>
         </TabsList>
 
         <TabsContent value="providers" className="pt-4">
@@ -267,6 +269,13 @@ export function AiPage() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="defaults" className="pt-4">
+          <ModelDefaultsPanel
+            selectableModels={selectableModels.data?.models ?? []}
+            isSelectableModelsLoading={selectableModels.isLoading}
+          />
         </TabsContent>
       </Tabs>
 

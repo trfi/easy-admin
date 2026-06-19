@@ -49,6 +49,30 @@ export interface AiModelStatusView {
   updatedBy?: string
 }
 
+export type QuizDefaultRole =
+  | 'primaryModelFast'
+  | 'primaryModelA'
+  | 'primaryModelB'
+  | 'tertiaryModel'
+  | 'quaternaryModel'
+  | 'metaJudge'
+
+export interface QuizModelDefaultsView {
+  primaryModelFast: string
+  primaryModelA: string
+  primaryModelB: string
+  tertiaryModel: string
+  quaternaryModel: string
+  metaJudge: string
+}
+
+export interface AiModelDefaultsView {
+  chat: string
+  quiz: QuizModelDefaultsView
+  quizFallback: QuizModelDefaultsView
+  updatedAt?: string
+}
+
 // Result of a live provider/combo generation test (Hepi calls the real model).
 export interface AiTestResult {
   ok: boolean

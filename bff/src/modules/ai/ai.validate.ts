@@ -15,6 +15,17 @@ const PROVIDER_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/
 // Hepi: COMBO_ID_PATTERN /^[a-z0-9][a-z0-9_.-]{0,79}$/
 const COMBO_ID_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,79}$/
 
+export const QUIZ_DEFAULT_ROLES = [
+  'primaryModelFast',
+  'primaryModelA',
+  'primaryModelB',
+  'tertiaryModel',
+  'quaternaryModel',
+  'metaJudge',
+] as const
+
+export type QuizDefaultRole = (typeof QUIZ_DEFAULT_ROLES)[number]
+
 export interface ProviderCreateInput {
   providerId: string
   name: string
@@ -24,6 +35,7 @@ export interface ProviderCreateInput {
 }
 
 export interface ProviderUpdateInput {
+  providerId?: string
   name?: string
   apiKey?: string
   baseURL?: string
@@ -100,6 +112,7 @@ export function validateProviderCreate(input: Record<string, unknown>): Provider
 
 export function validateProviderUpdate(input: Record<string, unknown>): ProviderUpdateInput {
   const result: ProviderUpdateInput = {}
+  if (input.providerId !== undefined) result.providerId = validateProviderId(input.providerId)
   if (input.name !== undefined) result.name = requireString(input.name, 'name', 120)
   if (input.apiKey !== undefined) result.apiKey = requireString(input.apiKey, 'apiKey', 4096)
   if (input.baseURL !== undefined) result.baseURL = requireUrl(input.baseURL, 'baseURL')
@@ -108,7 +121,7 @@ export function validateProviderUpdate(input: Record<string, unknown>): Provider
     result.active = input.active
   }
   if (Object.keys(result).length === 0) {
-    throw new AiValidationError('At least one field (name, apiKey, baseURL, active) is required')
+    throw new AiValidationError('At least one field (providerId, name, apiKey, baseURL, active) is required')
   }
   return result
 }
@@ -221,6 +234,41 @@ export function validateModelStatusInput(
 
 export function validateSelectableModelId(value: unknown): string {
   return requireString(value, 'id', 200)
+}
+
+export interface ChatDefaultUpdateInput {
+  modelId: string
+}
+
+export interface QuizDefaultsUpdateInput {
+  models: Partial<Record<QuizDefaultRole, string>>
+}
+
+export function validateChatDefaultUpdate(input: Record<string, unknown>): ChatDefaultUpdateInput {
+  return { modelId: requireString(input.modelId, 'modelId', 200) }
+}
+
+export function validateQuizDefaultsUpdate(input: Record<string, unknown>): QuizDefaultsUpdateInput {
+  if (typeof input.models !== 'object' || input.models === null || Array.isArray(input.models)) {
+    throw new AiValidationError('models must be an object')
+  }
+
+  const rawModels = input.models as Record<string, unknown>
+  const allowedRoles = new Set<string>(QUIZ_DEFAULT_ROLES)
+  const models: Partial<Record<QuizDefaultRole, string>> = {}
+
+  for (const key of Object.keys(rawModels)) {
+    if (!allowedRoles.has(key)) {
+      throw new AiValidationError(`Unknown quiz default role: ${key}`)
+    }
+    models[key as QuizDefaultRole] = requireString(rawModels[key], `models.${key}`, 200)
+  }
+
+  if (Object.keys(models).length === 0) {
+    throw new AiValidationError('At least one quiz default role is required')
+  }
+
+  return { models }
 }
 
 export interface SelectableModelCreateInput {

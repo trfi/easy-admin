@@ -2,18 +2,22 @@ import type { Config } from '../../config'
 import { hepiRequest } from '../../lib/hepiClient'
 import type {
   AiModelComboView,
+  AiModelDefaultsView,
   AiModelStatusView,
   AiProviderView,
   ComboTestResponse,
   ProviderTestResponse,
+  QuizModelDefaultsView,
   SelectableModelView,
 } from './ai.types'
 import type {
+  ChatDefaultUpdateInput,
   ComboCreateInput,
   ComboModelOrderInput,
   ComboUpdateInput,
   ProviderCreateInput,
   ProviderUpdateInput,
+  QuizDefaultsUpdateInput,
   SelectableModelCreateInput,
   SelectableModelUpdateInput,
   TestInput,
@@ -218,6 +222,85 @@ export async function deactivateModel(
     config
   )
   return status
+}
+
+// ── Model defaults (singleton config owned by Hepi) ──
+
+interface HepiQuizModelDefaultsDto {
+  primaryModelFast: string
+  primaryModelA: string
+  primaryModelB: string
+  tertiaryModel: string
+  quaternaryModel: string
+  metaJudge: string
+}
+
+interface HepiModelDefaultsDto {
+  chat: string
+  quiz: HepiQuizModelDefaultsDto
+  quizFallback: HepiQuizModelDefaultsDto
+  updatedAt?: string
+}
+
+function toQuizModelDefaultsView(dto: HepiQuizModelDefaultsDto): QuizModelDefaultsView {
+  return {
+    primaryModelFast: dto.primaryModelFast,
+    primaryModelA: dto.primaryModelA,
+    primaryModelB: dto.primaryModelB,
+    tertiaryModel: dto.tertiaryModel,
+    quaternaryModel: dto.quaternaryModel,
+    metaJudge: dto.metaJudge,
+  }
+}
+
+export function toModelDefaultsView(dto: HepiModelDefaultsDto): AiModelDefaultsView {
+  return {
+    chat: dto.chat,
+    quiz: toQuizModelDefaultsView(dto.quiz),
+    quizFallback: toQuizModelDefaultsView(dto.quizFallback),
+    updatedAt: dto.updatedAt,
+  }
+}
+
+export async function getModelDefaults(config: Config): Promise<AiModelDefaultsView> {
+  const { defaults } = await hepiRequest<{ defaults: HepiModelDefaultsDto }>(
+    { method: 'GET', path: '/ai-models/defaults' },
+    config
+  )
+  return toModelDefaultsView(defaults)
+}
+
+export async function updateChatDefault(
+  input: ChatDefaultUpdateInput,
+  config: Config
+): Promise<AiModelDefaultsView> {
+  const { defaults } = await hepiRequest<{ defaults: HepiModelDefaultsDto }>(
+    { method: 'PATCH', path: '/ai-models/defaults/chat', body: input },
+    config
+  )
+  return toModelDefaultsView(defaults)
+}
+
+export async function updateQuizDefaults(
+  input: QuizDefaultsUpdateInput,
+  config: Config
+): Promise<AiModelDefaultsView> {
+  const { defaults } = await hepiRequest<{ defaults: HepiModelDefaultsDto }>(
+    { method: 'PATCH', path: '/ai-models/defaults/quiz', body: input },
+    config
+  )
+  return toModelDefaultsView(defaults)
+}
+
+export async function updateQuizFallbackDefaults(
+  input: QuizDefaultsUpdateInput,
+  config: Config
+): Promise<AiModelDefaultsView> {
+  const { defaults } = await hepiRequest<{ defaults: HepiModelDefaultsDto }>(
+    { method: 'PATCH', path: '/ai-models/defaults/quiz-fallback', body: input },
+    config
+  )
+  return toModelDefaultsView(defaults)
 }
 
 // ── Selectable models (user-facing model list) ──

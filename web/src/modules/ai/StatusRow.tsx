@@ -70,7 +70,9 @@ export function StatusRow({ status }: { status: AiModelStatusView }) {
         {!status.active ? (
           <Badge variant="destructive">disabled</Badge>
         ) : status.failureCount > 0 ? (
-          <Badge variant="secondary">{status.failureCount} failures</Badge>
+          <Badge variant="secondary" className="whitespace-nowrap">
+            {status.failureCount} failures
+          </Badge>
         ) : (
           <Badge variant="outline">healthy</Badge>
         )}

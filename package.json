@@ -4,7 +4,9 @@
   "private": true,
   "workspaces": ["web", "bff"],
   "scripts": {
-    "dev": "bun run --watch bff/src/index.ts",
+    "dev": "npm-run-all --parallel dev:server dev:web",
+    "dev:server": "bun run --watch bff/src/index.ts",
+    "dev:web": "cd web && bun run dev",
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test",
     "lint": "eslint .",

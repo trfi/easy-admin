@@ -147,9 +147,13 @@ All routes under `/api`, all require `requireAuth` except login. JSON in/out.
 
 **AI Management**
 - `GET   /api/ai/providers` → provider configs **with apiKey stripped**
-- `PATCH /api/ai/providers/:providerId` `{ active }` → direct DB write
+- `PATCH /api/ai/providers/:providerId` `{ providerId?, name?, apiKey?, baseURL?, active? }` → proxies to Hepi; changing `providerId` cascades combo candidates and provider/model status keys there
 - `GET   /api/ai/combos` → model-combo configs
-- `PATCH /api/ai/combos/:comboId` `{ candidates?, active? }` → direct DB write
+- `PATCH /api/ai/combos/:comboId` `{ candidates?, active? }` → proxies to Hepi
+- `GET   /api/ai/defaults` → Hepi-owned default chat/quiz/fallback selectable model IDs
+- `PATCH /api/ai/defaults/chat` `{ modelId }` → proxies to Hepi
+- `PATCH /api/ai/defaults/quiz` `{ models }` → proxies partial quiz role default updates to Hepi
+- `PATCH /api/ai/defaults/quiz-fallback` `{ models }` → proxies partial fallback quiz role default updates to Hepi
 - `GET   /api/ai/status` → provider status rows (failureCount, lastFailureAt, disabledReason, …)
 
 ## Cross-Repo Contract: EasyQuiz Point-Adjustment Endpoint

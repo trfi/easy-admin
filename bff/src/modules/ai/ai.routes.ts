@@ -5,6 +5,7 @@ import type { Config } from '../../config'
 import { HepiUpstreamError } from '../../lib/hepiClient'
 import {
   AiValidationError,
+  validateChatDefaultUpdate,
   validateComboAddCandidate,
   validateComboRemoveCandidate,
   validateComboCreate,
@@ -15,6 +16,7 @@ import {
   validateProviderCreate,
   validateProviderId,
   validateProviderUpdate,
+  validateQuizDefaultsUpdate,
   validateSelectableModelCreate,
   validateSelectableModelId,
   validateSelectableModelUpdate,
@@ -31,6 +33,7 @@ import {
   deleteCombo,
   deleteProvider,
   deleteSelectableModel,
+  getModelDefaults,
   listCombos,
   listProviders,
   listSelectableModels,
@@ -38,8 +41,11 @@ import {
   reorderComboCandidate,
   testCombo,
   testProvider,
+  updateChatDefault,
   updateCombo,
   updateProvider,
+  updateQuizDefaults,
+  updateQuizFallbackDefaults,
   updateSelectableModel,
 } from './ai.service'
 
@@ -161,6 +167,32 @@ export function aiRoutes(config: Config): Hono<AppEnv> {
       const comboId = validateComboId(c.req.param('comboId'))
       const input = validateTest(await readJson(c), false)
       return c.json(await testCombo(comboId, input, config))
+    })
+  )
+
+  // ── Model defaults ──
+  router.get('/defaults', (c) =>
+    guard(c, async () => c.json({ defaults: await getModelDefaults(config) }))
+  )
+
+  router.patch('/defaults/chat', (c) =>
+    guard(c, async () => {
+      const input = validateChatDefaultUpdate(await readJson(c))
+      return c.json({ defaults: await updateChatDefault(input, config) })
+    })
+  )
+
+  router.patch('/defaults/quiz', (c) =>
+    guard(c, async () => {
+      const input = validateQuizDefaultsUpdate(await readJson(c))
+      return c.json({ defaults: await updateQuizDefaults(input, config) })
+    })
+  )
+
+  router.patch('/defaults/quiz-fallback', (c) =>
+    guard(c, async () => {
+      const input = validateQuizDefaultsUpdate(await readJson(c))
+      return c.json({ defaults: await updateQuizFallbackDefaults(input, config) })
     })
   )
 

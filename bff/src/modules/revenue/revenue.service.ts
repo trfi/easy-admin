@@ -45,6 +45,8 @@ export interface PaymentRow extends PaymentView {
 export interface RevenueResult {
   rows: PaymentRow[]
   summary: RevenueSummary
+  todaySummary: RevenueSummary
+  thisMonthSummary: RevenueSummary
   page: number
   limit: number
   total: number
@@ -55,6 +57,14 @@ const DEFAULT_LIMIT = 25
 const MAX_LIMIT = 200
 
 // ── Pure helpers (no DB — unit-testable) ──
+
+export function monthStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+}
+
+export function todayStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+}
 
 // Build a Mongo filter for the payment-history collection from request query.
 export function buildRevenueFilter(filter: RevenueFilter): Filter<PaymentDoc> {
@@ -161,7 +171,8 @@ export interface RevenuePageOptions extends RevenueFilter {
 export async function getRevenue(
   db: DbHandle,
   options: RevenuePageOptions,
-  rate: number
+  rate: number,
+  now: Date = new Date()
 ): Promise<RevenueResult> {
   const { page: rawPage, limit: rawLimit, ...filter } = options
   const page = clampPage(rawPage)
@@ -169,7 +180,19 @@ export async function getRevenue(
   const mongoFilter = buildRevenueFilter(filter)
   const collection = db.collection<PaymentDoc>(COLLECTIONS.paymentHistory)
 
-  const [docs, total, summary] = await Promise.all([
+  const { from: _, to: __, ...baseFilter } = filter
+  const todayFilter: RevenueFilter = {
+    ...baseFilter,
+    status: baseFilter.status || 'Completed',
+    from: todayStart(now),
+  }
+  const thisMonthFilter: RevenueFilter = {
+    ...baseFilter,
+    status: baseFilter.status || 'Completed',
+    from: monthStart(now),
+  }
+
+  const [docs, total, summary, todaySummary, thisMonthSummary] = await Promise.all([
     collection
       .find(mongoFilter)
       .sort({ date: -1 })
@@ -178,10 +201,12 @@ export async function getRevenue(
       .toArray(),
     collection.countDocuments(mongoFilter),
     getRevenueSummary(db, filter, rate),
+    getRevenueSummary(db, todayFilter, rate),
+    getRevenueSummary(db, thisMonthFilter, rate),
   ])
 
   const rows = await attachPayers(db, docs.map(toPaymentView))
-  return { rows, summary, page, limit, total }
+  return { rows, summary, todaySummary, thisMonthSummary, page, limit, total }
 }
 
 // ── Time series for charts ──

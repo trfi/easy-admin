@@ -11,7 +11,7 @@ export interface LoginResult {
   token?: string
 }
 
-const TOKEN_TTL_SECONDS = 12 * 60 * 60
+const TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60
 
 export async function authenticateAdmin(
   input: LoginInput,

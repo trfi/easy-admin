@@ -45,6 +45,38 @@ export interface AiModelStatusView {
   updatedBy?: string
 }
 
+export type QuizDefaultRole =
+  | 'primaryModelFast'
+  | 'primaryModelA'
+  | 'primaryModelB'
+  | 'tertiaryModel'
+  | 'quaternaryModel'
+  | 'metaJudge'
+
+export interface QuizModelDefaultsView {
+  primaryModelFast: string
+  primaryModelA: string
+  primaryModelB: string
+  tertiaryModel: string
+  quaternaryModel: string
+  metaJudge: string
+}
+
+export interface AiModelDefaultsView {
+  chat: string
+  quiz: QuizModelDefaultsView
+  quizFallback: QuizModelDefaultsView
+  updatedAt?: string
+}
+
+export interface ChatDefaultUpdateInput {
+  modelId: string
+}
+
+export interface QuizDefaultsUpdateInput {
+  models: Partial<Record<QuizDefaultRole, string>>
+}
+
 export interface AiTestResult {
   ok: boolean
   mode?: string
@@ -76,6 +108,7 @@ export interface ProviderCreateInput {
 }
 
 export interface ProviderUpdateInput {
+  providerId?: string
   name?: string
   apiKey?: string
   baseURL?: string
@@ -116,6 +149,7 @@ export interface ComboTestInput {
 const PROVIDERS_KEY = ['ai', 'providers'] as const
 const COMBOS_KEY = ['ai', 'combos'] as const
 const STATUS_KEY = ['ai', 'status'] as const
+const MODEL_DEFAULTS_KEY = ['ai', 'model-defaults'] as const
 const SELECTABLE_MODELS_KEY = ['ai', 'selectable-models'] as const
 
 // ── Queries ──
@@ -137,6 +171,13 @@ export function useStatus() {
   return useQuery({
     queryKey: STATUS_KEY,
     queryFn: () => apiFetch<{ status: AiModelStatusView[] }>('/ai/status'),
+  })
+}
+
+export function useModelDefaults() {
+  return useQuery({
+    queryKey: MODEL_DEFAULTS_KEY,
+    queryFn: () => apiFetch<{ defaults: AiModelDefaultsView }>('/ai/defaults'),
   })
 }
 
@@ -163,6 +204,43 @@ export function useDeactivateModel() {
         body: JSON.stringify(reason ? { model, reason } : { model }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: STATUS_KEY }),
+  })
+}
+
+// ── Model default mutations ──
+export function useUpdateChatDefault() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ChatDefaultUpdateInput) =>
+      apiFetch<{ defaults: AiModelDefaultsView }>('/ai/defaults/chat', {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MODEL_DEFAULTS_KEY }),
+  })
+}
+
+export function useUpdateQuizDefaults() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: QuizDefaultsUpdateInput) =>
+      apiFetch<{ defaults: AiModelDefaultsView }>('/ai/defaults/quiz', {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MODEL_DEFAULTS_KEY }),
+  })
+}
+
+export function useUpdateQuizFallbackDefaults() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: QuizDefaultsUpdateInput) =>
+      apiFetch<{ defaults: AiModelDefaultsView }>('/ai/defaults/quiz-fallback', {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MODEL_DEFAULTS_KEY }),
   })
 }
 
@@ -193,6 +271,7 @@ export function useUpdateProvider() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROVIDERS_KEY })
       qc.invalidateQueries({ queryKey: STATUS_KEY })
+      qc.invalidateQueries({ queryKey: COMBOS_KEY })
     },
   })
 }

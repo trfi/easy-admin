@@ -35,6 +35,8 @@ export interface RevenueSummary {
 export interface RevenueResponse {
   rows: PaymentRow[]
   summary: RevenueSummary
+  todaySummary: RevenueSummary
+  thisMonthSummary: RevenueSummary
   page: number
   limit: number
   total: number

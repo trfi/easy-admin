@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   AiValidationError,
+  validateChatDefaultUpdate,
   validateComboAddCandidate,
   validateComboCreate,
   validateComboId,
@@ -9,6 +10,7 @@ import {
   validateProviderCreate,
   validateProviderId,
   validateProviderUpdate,
+  validateQuizDefaultsUpdate,
   validateSelectableModelCreate,
   validateSelectableModelUpdate,
   validateTest,
@@ -69,6 +71,14 @@ describe('validateProviderCreate', () => {
 describe('validateProviderUpdate', () => {
   it('accepts a single field', () => {
     expect(validateProviderUpdate({ active: true })).toEqual({ active: true })
+  })
+  it('accepts a providerId-only rename', () => {
+    expect(validateProviderUpdate({ providerId: '  openai_v2  ' })).toEqual({
+      providerId: 'openai_v2',
+    })
+  })
+  it('rejects an invalid providerId rename', () => {
+    expect(() => validateProviderUpdate({ providerId: 'has space' })).toThrow(/providerId/)
   })
   it('rejects an empty update', () => {
     expect(() => validateProviderUpdate({})).toThrow(/At least one field/)
@@ -156,6 +166,51 @@ describe('validateTest', () => {
   it('validates the mode enum', () => {
     expect(() => validateTest({ mode: 'turbo' }, false)).toThrow(/mode/)
     expect(validateTest({ mode: 'stream' }, false).mode).toBe('stream')
+  })
+})
+
+describe('validateChatDefaultUpdate', () => {
+  it('accepts and trims a model id', () => {
+    expect(validateChatDefaultUpdate({ modelId: '  claude-sonnet-4.6  ' })).toEqual({
+      modelId: 'claude-sonnet-4.6',
+    })
+  })
+
+  it('rejects an empty model id', () => {
+    expect(() => validateChatDefaultUpdate({ modelId: '' })).toThrow(/modelId is required/)
+  })
+})
+
+describe('validateQuizDefaultsUpdate', () => {
+  it('accepts and trims a partial role update', () => {
+    expect(
+      validateQuizDefaultsUpdate({
+        models: { primaryModelA: '  claude-sonnet-4.6  ', metaJudge: 'claude-opus-4.8' },
+      })
+    ).toEqual({
+      models: { primaryModelA: 'claude-sonnet-4.6', metaJudge: 'claude-opus-4.8' },
+    })
+  })
+
+  it('rejects an empty models object', () => {
+    expect(() => validateQuizDefaultsUpdate({ models: {} })).toThrow(/At least one quiz default role/)
+  })
+
+  it('rejects a missing or non-object models field', () => {
+    expect(() => validateQuizDefaultsUpdate({})).toThrow(/models must be an object/)
+    expect(() => validateQuizDefaultsUpdate({ models: [] })).toThrow(/models must be an object/)
+  })
+
+  it('rejects unknown quiz role keys', () => {
+    expect(() => validateQuizDefaultsUpdate({ models: { primary: 'claude' } })).toThrow(
+      /Unknown quiz default role/
+    )
+  })
+
+  it('rejects non-string role values', () => {
+    expect(() => validateQuizDefaultsUpdate({ models: { primaryModelFast: 123 } })).toThrow(
+      /models.primaryModelFast is required/
+    )
   })
 })
 

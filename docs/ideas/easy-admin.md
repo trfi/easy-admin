@@ -30,7 +30,7 @@ The **Overview module** is the landing route: KPI cards (revenue this month spli
 - **Overview** — landing route. KPI cards: revenue this month by currency, active user count, AI provider health summary. Each card links into its module. Read-only aggregation.
 - **Revenue & Payments** — payment-history table (filter by status/currency/gateway/date), revenue totals split by currency, read-only.
 - **User Management** — list/search users, view points/plan/subscription, point adjustment via *proxied* API call.
-- **AI Management** — provider list with live status (failureCount, lastFailure, disabledReason), toggle active, edit model combos. Direct DB writes for toggles.
+- **AI Management** — provider list with live status (failureCount, lastFailure, disabledReason), toggle/edit providers, and edit model combos through Hepi-owned admin APIs.
 
 **Out:** Multi-admin RBAC, write-back to payments, time-series charts/analytics, content management.
 

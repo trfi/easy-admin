@@ -24,9 +24,9 @@ import {
 // Hepi's provider-id rule, mirrored so the field errors before the round-trip.
 const PROVIDER_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/
 
-// Create + edit share this dialog. `provider` undefined → create mode (providerId
-// is editable + required); defined → edit mode (id is locked, apiKey optional so
-// leaving it blank keeps the stored key).
+// Create + edit share this dialog. `provider` undefined → create mode; defined
+// → edit mode. Provider ID changes are proxied to Hepi, which cascades combo and
+// status references. Leaving apiKey blank in edit mode keeps the stored key.
 export function ProviderDialog({
   open,
   onOpenChange,
@@ -60,7 +60,7 @@ export function ProviderDialog({
   }, [open, provider])
 
   function validate(): string | null {
-    if (!editing && !PROVIDER_ID_PATTERN.test(providerId.trim())) {
+    if (!PROVIDER_ID_PATTERN.test(providerId.trim())) {
       return 'Provider ID must be alphanumeric (with _ or -), max 80 chars'
     }
     if (!name.trim()) return 'Name is required'
@@ -90,7 +90,10 @@ export function ProviderDialog({
 
     if (editing) {
       // Only send changed fields; an empty apiKey means "keep the existing key".
+      const nextProviderId = providerId.trim()
+      const renamed = nextProviderId !== provider.providerId
       const input: ProviderUpdateInput = {}
+      if (renamed) input.providerId = nextProviderId
       if (name.trim() !== provider.name) input.name = name.trim()
       if (baseURL.trim() !== provider.baseURL) input.baseURL = baseURL.trim()
       if (active !== provider.active) input.active = active
@@ -103,7 +106,11 @@ export function ProviderDialog({
         { providerId: provider.providerId, input },
         {
           onSuccess: () => {
-            toast.success(`Provider “${provider.providerId}” updated`)
+            toast.success(
+              renamed
+                ? `Provider “${provider.providerId}” renamed to “${nextProviderId}”`
+                : `Provider “${provider.providerId}” updated`
+            )
             onOpenChange(false)
           },
           onError,
@@ -135,7 +142,7 @@ export function ProviderDialog({
             <DialogTitle>{editing ? 'Edit provider' : 'Add provider'}</DialogTitle>
             <DialogDescription>
               {editing
-                ? 'Update the provider config. Leave the API key blank to keep the current one.'
+                ? 'Update the provider config. Changing the ID cascades combo and status references in Hepi; leave the API key blank to keep the current one.'
                 : 'Register a new AI provider. The API key is stored by Hepi and never returned.'}
             </DialogDescription>
           </DialogHeader>
@@ -148,7 +155,6 @@ export function ProviderDialog({
                 value={providerId}
                 onChange={(e) => setProviderId(e.target.value)}
                 placeholder="openai"
-                disabled={editing}
               />
             </div>
 

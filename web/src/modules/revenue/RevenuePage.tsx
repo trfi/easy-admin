@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { DollarSign, Calendar, Filter } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -49,14 +50,50 @@ function formatAmount(amount: number, currency: Currency): string {
   return currency === 'USD' ? formatUsd(amount) : formatVnd(amount)
 }
 
-function SummaryCard({ title, value }: { title: string; value: string }) {
+interface SummaryCardProps {
+  title: string
+  summary?: {
+    unifiedVnd: number
+    byCurrency: { VND: number; USD: number }
+    count: number
+  }
+  icon: React.ComponentType<{ className?: string }>
+  gradientClass: string
+  borderClass: string
+  iconColorClass: string
+}
+
+function SummaryCard({
+  title,
+  summary,
+  icon: Icon,
+  gradientClass,
+  borderClass,
+  iconColorClass,
+}: SummaryCardProps) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+    <Card className={`overflow-hidden relative border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 bg-card/60 backdrop-blur-sm ${borderClass}`}>
+      <div className={`absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r ${gradientClass}`} />
+      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+        <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+          {title}
+        </CardTitle>
+        <div className={`p-1.5 rounded-lg bg-secondary/50 border border-muted/50 ${iconColorClass}`}>
+          <Icon className="h-4 w-4" />
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+      <CardContent className="pt-1">
+        <div className="text-3xl font-extrabold tracking-tight text-foreground">
+          {formatVnd(summary?.unifiedVnd ?? 0)}
+        </div>
+        <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground border-t border-muted/30 pt-2">
+          <span className="font-medium text-muted-foreground/90">
+            {formatVnd(summary?.byCurrency?.VND ?? 0)} + {formatUsd(summary?.byCurrency?.USD ?? 0)}
+          </span>
+          <span className="bg-secondary/70 px-2 py-0.5 rounded-full font-medium text-[12px] text-secondary-foreground border border-muted/30">
+            {summary?.count ?? 0} {summary?.count === 1 ? 'payment' : 'payments'}
+          </span>
+        </div>
       </CardContent>
     </Card>
   )
@@ -81,6 +118,8 @@ export function RevenuePage() {
   }
 
   const summary = data?.summary
+  const todaySummary = data?.todaySummary
+  const thisMonthSummary = data?.thisMonthSummary
 
   return (
     <div className="flex flex-col gap-6">
@@ -90,9 +129,30 @@ export function RevenuePage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard title="Unified total (VND)" value={formatVnd(summary?.unifiedVnd ?? 0)} />
-        <SummaryCard title="VND" value={formatVnd(summary?.byCurrency.VND ?? 0)} />
-        <SummaryCard title="USD" value={formatUsd(summary?.byCurrency.USD ?? 0)} />
+        <SummaryCard
+          title="Today"
+          summary={todaySummary}
+          icon={DollarSign}
+          gradientClass="from-gray-700 to-gray-600"
+          borderClass="hover:border-gray-700/20"
+          iconColorClass="text-gray-700"
+        />
+        <SummaryCard
+          title="This Month"
+          summary={thisMonthSummary}
+          icon={Calendar}
+          gradientClass="from-gray-700 to-gray-600"
+          borderClass="hover:border-gray-700/20"
+          iconColorClass="text-gray-700"
+        />
+        <SummaryCard
+          title="Total"
+          summary={summary}
+          icon={Filter}
+          gradientClass="from-gray-700 to-gray-600"
+          borderClass="hover:border-gray-700/20"
+          iconColorClass="text-gray-700"
+        />
       </div>
 
       <Card>
