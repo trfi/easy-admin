@@ -11,7 +11,8 @@
     "test": "bun run --filter '*' test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "build:zip": "7z a -tzip ./deploy.zip -xr!node_modules -xr!.git -xr!.env -xr!dist -xr!deploy.zip -xr!docs -xr!.agents -xr!.claude -xr!.codegraph ./*"
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",

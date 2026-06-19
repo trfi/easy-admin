@@ -82,17 +82,17 @@ describe('buildRevenueFilter', () => {
   it('builds a date range with both bounds', () => {
     const from = new Date('2026-01-01')
     const to = new Date('2026-02-01')
-    expect(buildRevenueFilter({ from, to })).toEqual({ date: { $gte: from, $lte: to } })
+    expect(buildRevenueFilter({ from, to })).toEqual({ createdAt: { $gte: from, $lte: to } })
   })
 
   it('builds a date range with only a lower bound', () => {
     const from = new Date('2026-01-01')
-    expect(buildRevenueFilter({ from })).toEqual({ date: { $gte: from } })
+    expect(buildRevenueFilter({ from })).toEqual({ createdAt: { $gte: from } })
   })
 
   it('builds a date range with only an upper bound', () => {
     const to = new Date('2026-02-01')
-    expect(buildRevenueFilter({ to })).toEqual({ date: { $lte: to } })
+    expect(buildRevenueFilter({ to })).toEqual({ createdAt: { $lte: to } })
   })
 })
 

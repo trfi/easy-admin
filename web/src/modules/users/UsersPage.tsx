@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { RotateCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UserAvatar } from '@/components/UserAvatar'
 import { TablePagination } from '@/components/TablePagination'
 import { cn } from '@/lib/utils'
-import { useUsers, useUser } from './users.api'
+import { useUsers, useUser, useUserStats } from './users.api'
 import { UserDetail } from './UserDetail'
 import { UserStatsPanel } from './UserStatsPanel'
 
@@ -19,8 +21,19 @@ export function UsersPage() {
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'))
 
-  const { data, isLoading, isError, error, isFetching } = useUsers(query, page, DEFAULT_LIMIT)
+  const { data, isLoading, isError, error, isFetching, refetch: refetchUsers } = useUsers(query, page, DEFAULT_LIMIT)
   const detail = useUser(selectedId)
+  const stats = useUserStats()
+
+  const isRefreshing = isFetching || stats.isFetching || (selectedId ? detail.isFetching : false)
+
+  const handleRefresh = () => {
+    refetchUsers()
+    stats.refetch()
+    if (selectedId) {
+      detail.refetch()
+    }
+  }
 
   // A deep link from elsewhere (e.g. the revenue payer column) sets ?id=.
   useEffect(() => {
@@ -39,9 +52,21 @@ export function UsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
-        <p className="text-sm text-muted-foreground">Search the shared EasyQuiz + Hepi user base.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
+          <p className="text-sm text-muted-foreground">Search the shared EasyQuiz + Hepi user base.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          title="Refresh data"
+          className="rounded-full"
+        >
+          <RotateCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+        </Button>
       </div>
 
       <UserStatsPanel />

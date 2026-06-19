@@ -19,12 +19,12 @@ export function formatVndCompact(amount: number): string {
 export function formatDate(value?: string | null): string {
   if (!value) return '—'
   const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString()
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
 }
 
 // Date + time. Returns an em dash for missing/invalid input.
 export function formatDateTime(value?: string | null): string {
   if (!value) return '—'
   const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
 }

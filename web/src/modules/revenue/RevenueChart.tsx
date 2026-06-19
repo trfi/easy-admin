@@ -9,7 +9,7 @@ import { formatVnd, formatVndCompact } from '@/lib/format'
 import type { RevenuePoint, SeriesInterval } from './revenue.api'
 
 const CHART_CONFIG = {
-  unifiedVnd: { label: 'Revenue (VND)', color: 'hsl(var(--chart-1))' },
+  unifiedVnd: { label: 'Revenue (VND)', color: 'var(--chart-1)' },
 } satisfies ChartConfig
 
 // Shorten a period label for the X axis: 'YYYY-MM' → 'MM', 'YYYY-MM-DD' → 'DD/MM'.

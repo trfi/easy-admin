@@ -1,24 +1,27 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { AppShell } from '@/shell/AppShell'
-import { MODULES } from '@/shell/registry'
+import { Layout } from '@/components/layout'
 import { LoginPage } from '@/auth/LoginPage'
 import { RequireAuth } from '@/auth/guard'
+import { OverviewPage } from '@/modules/overview/OverviewPage'
+import { UsersPage } from '@/modules/users/UsersPage'
+import { RevenuePage } from '@/modules/revenue/RevenuePage'
+import { AiPage } from '@/modules/ai/AiPage'
 
-// Router is derived from the registry — no per-module route wiring.
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   {
     path: '/',
     element: (
       <RequireAuth>
-        <AppShell />
+        <Layout />
       </RequireAuth>
     ),
-    children: MODULES.map((m) => ({
-      index: m.path === '/',
-      path: m.path === '/' ? undefined : m.path.replace(/^\//, ''),
-      Component: m.element,
-    })),
+    children: [
+      { index: true, element: <OverviewPage /> },
+      { path: 'users', element: <UsersPage /> },
+      { path: 'revenue', element: <RevenuePage /> },
+      { path: 'ai', element: <AiPage /> },
+    ],
   },
   { path: '*', element: <Navigate to="/" replace /> },
 ])

@@ -81,7 +81,7 @@ export function buildRevenueFilter(filter: RevenueFilter): Filter<PaymentDoc> {
     const range: Record<string, Date> = {}
     if (filter.from) range.$gte = filter.from
     if (filter.to) range.$lte = filter.to
-    query.date = range
+    query.createdAt = range
   }
 
   return query
@@ -195,7 +195,7 @@ export async function getRevenue(
   const [docs, total, summary, todaySummary, thisMonthSummary] = await Promise.all([
     collection
       .find(mongoFilter)
-      .sort({ date: -1 })
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .toArray(),
@@ -236,7 +236,7 @@ export async function getRevenueSeries(
       { $match: buildRevenueFilter(filter) },
       {
         $group: {
-          _id: { period: { $dateToString: { format, date: '$date' } }, currency: '$currency' },
+          _id: { period: { $dateToString: { format, date: '$createdAt' } }, currency: '$currency' },
           total: { $sum: '$amount' },
           count: { $sum: 1 },
         },

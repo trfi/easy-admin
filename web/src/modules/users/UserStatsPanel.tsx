@@ -10,11 +10,11 @@ import {
 import { useUserStats, type UserStatsPoint } from './users.api'
 
 const NEW_CHART_CONFIG = {
-  count: { label: 'New signups', color: 'hsl(var(--chart-1))' },
+  count: { label: 'New signups', color: 'var(--chart-1)' },
 } satisfies ChartConfig
 
 const ACTIVE_CHART_CONFIG = {
-  count: { label: 'Active users', color: 'hsl(var(--chart-2))' },
+  count: { label: 'Active users', color: 'var(--chart-2)' },
 } satisfies ChartConfig
 
 function shortDay(date: string): string {

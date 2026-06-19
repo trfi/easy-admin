@@ -16,7 +16,7 @@ export interface PaymentRow {
   userId: string
   amount: number
   currency: Currency
-  date: string
+  createdAt: string
   type: 'Deposit' | 'Withdraw'
   reason: 'Subscription' | 'Top-up'
   status: PaymentStatus

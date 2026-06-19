@@ -116,7 +116,7 @@ export interface PaymentView {
   userId: string
   amount: number
   currency: Currency
-  date: Date
+  createdAt: Date
   type: 'Deposit' | 'Withdraw'
   reason: 'Subscription' | 'Top-up'
   status: 'Pending' | 'Completed' | 'Failed'
@@ -131,7 +131,7 @@ export function toPaymentView(doc: PaymentDoc): PaymentView {
     userId: doc.user.toHexString(),
     amount: doc.amount,
     currency: doc.currency,
-    date: doc.date,
+    createdAt: doc.createdAt,
     type: doc.type,
     reason: doc.reason,
     status: doc.status,

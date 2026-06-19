@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- Stage 1: install deps + build the web bundle ----
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.3.14 AS builder
 WORKDIR /app
 
 # Manifests first so the install layer caches across source-only changes.
@@ -16,7 +16,7 @@ COPY bff ./bff
 RUN cd web && bun run build
 
 # ---- Stage 2: runtime ----
-FROM oven/bun:1-slim AS runtime
+FROM oven/bun:1.3.14-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 

@@ -72,7 +72,7 @@ export function UserPayments({ userId }: { userId: string }) {
           ) : (
             data?.rows.map((p) => (
               <TableRow key={p._id}>
-                <TableCell>{formatDate(p.date)}</TableCell>
+                <TableCell>{formatDate(p.createdAt)}</TableCell>
                 <TableCell>{p.paymentName}</TableCell>
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
