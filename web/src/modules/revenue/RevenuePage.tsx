@@ -157,7 +157,6 @@ export function RevenuePage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Revenue &amp; Payments</h2>
-          <p className="text-sm text-muted-foreground">Payment history from the shared database.</p>
         </div>
         <Button
           variant="outline"

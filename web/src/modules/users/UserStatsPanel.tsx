@@ -10,11 +10,11 @@ import {
 import { useUserStats, type UserStatsPoint } from './users.api'
 
 const NEW_CHART_CONFIG = {
-  count: { label: 'New signups', color: 'var(--chart-1)' },
+  count: { label: 'New users', color: 'var(--chart-1)' },
 } satisfies ChartConfig
 
 const ACTIVE_CHART_CONFIG = {
-  count: { label: 'Active users', color: 'var(--chart-2)' },
+  count: { label: 'Active users', color: 'var(--chart-1)' },
 } satisfies ChartConfig
 
 function shortDay(date: string): string {
@@ -97,8 +97,8 @@ export function UserStatsPanel() {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard title="Active today" value={data.activeToday} sub="updated today" />
-        <StatCard title="Active this month" value={data.activeThisMonth} sub="updated this month" />
+        <StatCard title="Active today" value={data.activeToday} />
+        <StatCard title="Active this month" value={data.activeThisMonth} />
         <StatCard title="New today" value={data.newToday} />
         <StatCard title="New this week" value={data.newThisWeek} />
         <StatCard title="New this month" value={data.newThisMonth} />
@@ -107,7 +107,7 @@ export function UserStatsPanel() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">New signups (30d)</CardTitle>
+            <CardTitle className="text-base">New users (30d)</CardTitle>
           </CardHeader>
           <CardContent>
             <UsersBarChart points={data.newByDay} config={NEW_CHART_CONFIG} />

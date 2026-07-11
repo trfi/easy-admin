@@ -91,6 +91,20 @@ export function toAdminUserView(doc: UserDoc): AdminUserView {
   }
 }
 
+// ── Point transactions (TTL-limited; only safe for short-window usage stats) ──
+export interface PointTransactionDoc {
+  _id: ObjectId
+  user?: ObjectId
+  userId?: ObjectId | string
+  amount?: number
+  type?: string
+  reason?: string
+  source?: string
+  metadata?: { source?: string }
+  createdAt: Date
+  updatedAt?: Date
+}
+
 // ── Payment history (revenue source of truth — no TTL) ──
 export type Currency = 'VND' | 'USD'
 

@@ -1,4 +1,4 @@
-# Easy-Admin — Unified Admin Platform for EasyQuiz + Hepi
+# Easy Admin — Unified Admin Platform for EasyQuiz + Hepi
 
 ## Problem Statement
 **How might we** give the operator a single, extensible admin platform over the shared `easyquiz` database — to monitor revenue/payments, manage the user base, and actively control AI providers/models — without coupling the dashboard to either app's internal Mongoose models?

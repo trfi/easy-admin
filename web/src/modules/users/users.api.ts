@@ -115,3 +115,27 @@ export function useAdjustPoints() {
     },
   })
 }
+
+export interface UpgradePlanInput {
+  userId: string
+  identifier: string
+  plan: 'Pro' | 'Premium'
+  packageName: 'Week' | 'Month' | 'Quarter' | 'Year' | 'Lifetime'
+  amount?: number
+  paymentMethod?: 'VCB' | 'MoMo' | 'Dodo'
+  transactionReference?: string
+  trackPaymentHistory: boolean
+}
+
+export function useUpgradePlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId: _, ...body }: UpgradePlanInput) =>
+      apiFetch('/users/plan/upgrade', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: (_data, { userId }) => {
+      qc.invalidateQueries({ queryKey: ['user', userId] })
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['revenue'] })
+    },
+  })
+}

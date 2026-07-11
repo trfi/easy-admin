@@ -7,23 +7,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TablePagination } from '@/components/TablePagination'
-import { formatVnd, formatUsd, formatDate } from '@/lib/format'
-import {
-  useRevenue,
-  type PaymentStatus,
-  type Currency,
-} from '@/modules/revenue/revenue.api'
+import { formatVnd, formatUsd, formatDateTime } from '@/lib/format'
+import { useRevenue, type Currency } from '@/modules/revenue/revenue.api'
 
 const LIMIT = 10
-
-const STATUS_VARIANT: Record<PaymentStatus, 'default' | 'secondary' | 'destructive'> = {
-  Completed: 'default',
-  Pending: 'secondary',
-  Failed: 'destructive',
-}
 
 function formatAmount(amount: number, currency: Currency): string {
   return currency === 'USD' ? formatUsd(amount) : formatVnd(amount)
@@ -50,7 +39,7 @@ export function UserPayments({ userId }: { userId: string }) {
           <TableRow>
             <TableHead>Date</TableHead>
             <TableHead>Payment</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Reason</TableHead>
             <TableHead className="text-right">Amount</TableHead>
           </TableRow>
         </TableHeader>
@@ -72,11 +61,9 @@ export function UserPayments({ userId }: { userId: string }) {
           ) : (
             data?.rows.map((p) => (
               <TableRow key={p._id}>
-                <TableCell>{formatDate(p.createdAt)}</TableCell>
+                <TableCell>{formatDateTime(p.createdAt)}</TableCell>
                 <TableCell>{p.paymentName}</TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
-                </TableCell>
+                <TableCell>{p.reason}</TableCell>
                 <TableCell className="text-right font-medium">
                   {formatAmount(p.amount, p.currency)}
                 </TableCell>

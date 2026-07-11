@@ -39,7 +39,7 @@ export function LoginPage() {
         className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
       >
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold">Easy-Admin</h1>
+          <h1 className="text-xl font-semibold">Easy Admin</h1>
           <p className="text-sm text-muted-foreground">Sign in to continue.</p>
         </div>
 

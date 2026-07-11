@@ -1,6 +1,12 @@
-import { ObjectId, type Filter } from 'mongodb'
+import { ObjectId, type Collection, type Document, type Filter } from 'mongodb'
 import type { DbHandle } from '../../db/client'
-import { COLLECTIONS, toAdminUserView, type AdminUserView, type UserDoc } from '../../db/readModels'
+import {
+  COLLECTIONS,
+  toAdminUserView,
+  type AdminUserView,
+  type PointTransactionDoc,
+  type UserDoc,
+} from '../../db/readModels'
 
 export interface UserStatsPoint {
   date: string
@@ -52,6 +58,9 @@ export interface UserSearchResult {
 
 const DEFAULT_LIMIT = 25
 const MAX_LIMIT = 200
+const DAILY_FREE_SOURCE = 'daily_free'
+const DAILY_TYPE = 'Daily'
+const ACTIVE_USER_EXPR = { $ifNull: ['$user', '$userId'] }
 
 // Escape a user-supplied string for safe use inside a RegExp.
 // Prevents a search term like "a.*" from being treated as a pattern.
@@ -77,6 +86,50 @@ export function clampLimit(limit: number | undefined): number {
 export function clampPage(page: number | undefined): number {
   if (!page || !Number.isFinite(page) || page < 1) return 1
   return Math.floor(page)
+}
+
+export function buildActiveUserMatch(since: Date): Filter<PointTransactionDoc> {
+  return {
+    createdAt: { $gte: since },
+    source: { $ne: DAILY_FREE_SOURCE },
+    'metadata.source': { $ne: DAILY_FREE_SOURCE },
+    type: { $ne: DAILY_TYPE },
+    reason: { $ne: DAILY_FREE_SOURCE },
+  } as Filter<PointTransactionDoc>
+}
+
+export function buildActiveUserCountPipeline(since: Date): Document[] {
+  return [
+    { $match: buildActiveUserMatch(since) },
+    { $group: { _id: ACTIVE_USER_EXPR } },
+    { $match: { _id: { $ne: null } } },
+    { $count: 'count' },
+  ]
+}
+
+export function buildActiveUsersByDayPipeline(since: Date): Document[] {
+  return [
+    { $match: buildActiveUserMatch(since) },
+    {
+      $group: {
+        _id: {
+          date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          user: ACTIVE_USER_EXPR,
+        },
+      },
+    },
+    { $match: { '_id.user': { $ne: null } } },
+    { $group: { _id: '$_id.date', count: { $sum: 1 } } },
+    { $sort: { _id: 1 } },
+  ]
+}
+
+async function countActiveUsers(
+  collection: Collection<PointTransactionDoc>,
+  since: Date
+): Promise<number> {
+  const [result] = await collection.aggregate<{ count: number }>(buildActiveUserCountPipeline(since)).toArray()
+  return result?.count ?? 0
 }
 
 export async function searchUsers(
@@ -112,7 +165,8 @@ export async function getUserById(db: DbHandle, id: string): Promise<AdminUserVi
 }
 
 export async function getUserStats(db: DbHandle, now: Date = new Date()): Promise<UserStats> {
-  const collection = db.collection<UserDoc>(COLLECTIONS.users)
+  const usersCollection = db.collection<UserDoc>(COLLECTIONS.users)
+  const pointTransactions = db.collection<PointTransactionDoc>(COLLECTIONS.pointTransaction)
   const today = dayStart(now)
   const week = weekStart(now)
   const month = monthStart(now)
@@ -120,24 +174,20 @@ export async function getUserStats(db: DbHandle, now: Date = new Date()): Promis
 
   const [activeToday, activeThisMonth, newToday, newThisWeek, newThisMonth, newByDayRaw, activeByDayRaw] =
     await Promise.all([
-      collection.countDocuments({ updatedAt: { $gte: today } }),
-      collection.countDocuments({ updatedAt: { $gte: month } }),
-      collection.countDocuments({ createdAt: { $gte: today } }),
-      collection.countDocuments({ createdAt: { $gte: week } }),
-      collection.countDocuments({ createdAt: { $gte: month } }),
-      collection
+      countActiveUsers(pointTransactions, today),
+      countActiveUsers(pointTransactions, month),
+      usersCollection.countDocuments({ createdAt: { $gte: today } }),
+      usersCollection.countDocuments({ createdAt: { $gte: week } }),
+      usersCollection.countDocuments({ createdAt: { $gte: month } }),
+      usersCollection
         .aggregate<{ _id: string; count: number }>([
           { $match: { createdAt: { $gte: thirtyDaysAgo } } },
           { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
           { $sort: { _id: 1 } },
         ])
         .toArray(),
-      collection
-        .aggregate<{ _id: string; count: number }>([
-          { $match: { updatedAt: { $gte: thirtyDaysAgo } } },
-          { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$updatedAt' } }, count: { $sum: 1 } } },
-          { $sort: { _id: 1 } },
-        ])
+      pointTransactions
+        .aggregate<{ _id: string; count: number }>(buildActiveUsersByDayPipeline(thirtyDaysAgo))
         .toArray(),
     ])
 

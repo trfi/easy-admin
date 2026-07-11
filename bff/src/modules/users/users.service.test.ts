@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { ObjectId } from 'mongodb'
 import {
+  buildActiveUsersByDayPipeline,
+  buildActiveUserCountPipeline,
+  buildActiveUserMatch,
   buildUserSearchFilter,
   clampLimit,
   clampPage,
@@ -114,6 +117,50 @@ describe('toAdminUserView', () => {
 
   it('defaults avatar to null', () => {
     expect(toAdminUserView(baseDoc()).avatar).toBeNull()
+  })
+})
+
+describe('active user stats pipelines', () => {
+  it('excludes daily free grants from the active-user match', () => {
+    const since = new Date('2026-06-19T00:00:00Z')
+
+    expect(buildActiveUserMatch(since)).toEqual({
+      createdAt: { $gte: since },
+      source: { $ne: 'daily_free' },
+      'metadata.source': { $ne: 'daily_free' },
+      type: { $ne: 'Daily' },
+      reason: { $ne: 'daily_free' },
+    })
+  })
+
+  it('counts unique active users since the boundary', () => {
+    const since = new Date('2026-06-01T00:00:00Z')
+
+    expect(buildActiveUserCountPipeline(since)).toEqual([
+      { $match: buildActiveUserMatch(since) },
+      { $group: { _id: { $ifNull: ['$user', '$userId'] } } },
+      { $match: { _id: { $ne: null } } },
+      { $count: 'count' },
+    ])
+  })
+
+  it('counts each active user once per day in the 30-day chart', () => {
+    const since = new Date('2026-05-21T00:00:00Z')
+
+    expect(buildActiveUsersByDayPipeline(since)).toEqual([
+      { $match: buildActiveUserMatch(since) },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            user: { $ifNull: ['$user', '$userId'] },
+          },
+        },
+      },
+      { $match: { '_id.user': { $ne: null } } },
+      { $group: { _id: '$_id.date', count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ])
   })
 })
 

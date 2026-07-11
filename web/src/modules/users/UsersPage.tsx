@@ -55,7 +55,6 @@ export function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
-          <p className="text-sm text-muted-foreground">Search the shared EasyQuiz + Hepi user base.</p>
         </div>
         <Button
           variant="outline"

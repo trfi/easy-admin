@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -30,7 +31,14 @@ import { SelectableModelRow } from './SelectableModelRow'
 import { SelectableModelDialog } from './SelectableModelDialog'
 import { ModelDefaultsPanel } from './ModelDefaultsPanel'
 
+const VALID_TABS = ['providers', 'combos', 'status', 'models', 'defaults']
+
 export function AiPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = VALID_TABS.includes(searchParams.get('tab') || '')
+    ? (searchParams.get('tab') as string)
+    : 'providers'
+
   const providers = useProviders()
   const combos = useCombos()
   const status = useStatus()
@@ -78,12 +86,18 @@ export function AiPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">AI Management</h2>
-        <p className="text-sm text-muted-foreground">
-          Providers, model combos, defaults, and live status. Config proxies to Hepi; API keys are never exposed.
-        </p>
       </div>
 
-      <Tabs defaultValue="providers">
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.set('tab', val)
+            return next
+          }, { replace: true })
+        }}
+      >
         <TabsList>
           <TabsTrigger value="providers">Providers</TabsTrigger>
           <TabsTrigger value="combos">Model combos</TabsTrigger>
@@ -116,8 +130,16 @@ export function AiPage() {
                   {providers.isLoading ? (
                     Array.from({ length: 3 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell colSpan={6}>
-                          <Skeleton className="h-6 w-full" />
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Skeleton className="h-8 w-16" />
+                            <Skeleton className="h-8 w-8" />
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -157,8 +179,27 @@ export function AiPage() {
             </div>
             {combos.isLoading ? (
               <div className="grid gap-4 lg:grid-cols-2">
-                <Skeleton className="h-40 w-full" />
-                <Skeleton className="h-40 w-full" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-5 w-16" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-9 w-22" />
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-8 w-8" />
+                        <Skeleton className="h-5 w-10 rounded-full" />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : (combos.data?.combos.length ?? 0) === 0 ? (
               <Card>
@@ -197,9 +238,12 @@ export function AiPage() {
                   {status.isLoading ? (
                     Array.from({ length: 3 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell colSpan={6}>
-                          <Skeleton className="h-6 w-full" />
-                        </TableCell>
+                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                       </TableRow>
                     ))
                   ) : statusList.length === 0 ? (
@@ -242,10 +286,21 @@ export function AiPage() {
                 </TableHeader>
                 <TableBody>
                   {selectableModels.isLoading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
+                    Array.from({ length: 4 }).map((_, i) => (
                       <TableRow key={i}>
-                        <TableCell colSpan={9}>
-                          <Skeleton className="h-6 w-full" />
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

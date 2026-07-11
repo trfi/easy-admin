@@ -1,4 +1,4 @@
-# Spec: Easy-Admin MVP — Unified Admin Platform for EasyQuiz + Hepi
+# Spec: Easy Admin MVP — Unified Admin Platform for EasyQuiz + Hepi
 
 > Source idea: `docs/ideas/easy-admin.md`. This spec is the source of truth for the MVP build.
 
@@ -143,6 +143,7 @@ All routes under `/api`, all require `requireAuth` except login. JSON in/out.
 **User Management**
 - `GET  /api/users?search&plan&page&limit` → paginated superset user view
 - `GET  /api/users/:id` → single user detail
+- `GET  /api/users/stats` → signup counts plus short-window active-user counts from `pointtransactions`, excluding `daily_free` grants
 - `POST /api/users/:id/points/adjust` `{ amount, mode: 'permanent'|'expiring', reason, expiresAt? }` → **proxies** to EasyQuiz api with `X-Admin-Secret`
 
 **AI Management**

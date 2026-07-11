@@ -250,9 +250,48 @@ export function ModelDefaultsPanel({
 
   if (defaultsQuery.isLoading || isSelectableModelsLoading) {
     return (
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-80 w-full" />
+      <div className="flex flex-col gap-4">
+        {/* Chat default card skeleton */}
+        <Card className="max-w-[400px]">
+          <CardHeader>
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-4 w-56 mt-1" />
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+            <div className="flex justify-end">
+              <Skeleton className="h-9 w-32" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quiz cards grid skeleton */}
+        <div className="grid gap-4 xl:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-80 mt-1" />
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <div key={j} className="flex flex-col gap-1.5">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-9 w-full" />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end">
+                  <Skeleton className="h-9 w-24" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }

@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/format'
 import type { AdminUserView } from './users.api'
 import { AdjustPointsForm } from './AdjustPointsForm'
 import { UserPayments } from './UserPayments'
+import { UpgradePlanForm } from './UpgradePlanForm'
 
 export function UserDetail({ user }: { user: AdminUserView }) {
   return (
@@ -39,6 +40,7 @@ export function UserDetail({ user }: { user: AdminUserView }) {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="upgrade">Upgrade plan</TabsTrigger>
           <TabsTrigger value="adjust">Adjust points</TabsTrigger>
         </TabsList>
 
@@ -79,6 +81,17 @@ export function UserDetail({ user }: { user: AdminUserView }) {
             </CardHeader>
             <CardContent>
               <UserPayments userId={user._id} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="upgrade" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Upgrade plan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <UpgradePlanForm user={user} />
             </CardContent>
           </Card>
         </TabsContent>

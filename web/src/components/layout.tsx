@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { AppSidebar } from '@/components/app-sidebar'
 import { ThemeToggle } from '@/theme/ThemeToggle'
@@ -12,8 +13,20 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
+const SIDEBAR_OPEN_KEY = 'easy-admin-sidebar-open'
+
+function getInitialSidebarOpen(): boolean {
+  return window.localStorage.getItem(SIDEBAR_OPEN_KEY) !== 'false'
+}
+
 export function Layout() {
   const { pathname } = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarOpen)
+
+  const handleSidebarOpenChange = (open: boolean) => {
+    setSidebarOpen(open)
+    window.localStorage.setItem(SIDEBAR_OPEN_KEY, String(open))
+  }
   
   // Clean breadcrumbs display based on current route
   let pageTitle = 'Overview'
@@ -22,7 +35,7 @@ export function Layout() {
   else if (pathname === '/ai') pageTitle = 'AI Management'
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
       <div className="flex h-screen w-screen overflow-hidden">
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1 overflow-hidden">

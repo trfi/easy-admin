@@ -6,6 +6,7 @@ import { makeRequireAuth, type AuthedUser } from './auth/requireAuth'
 import { revenueRoutes } from './modules/revenue/revenue.routes'
 import { usersRoutes } from './modules/users/users.routes'
 import { adjustRoutes } from './modules/users/adjust.routes'
+import { upgradeRoutes } from './modules/users/upgrade.routes'
 import { aiRoutes } from './modules/ai/ai.routes'
 import { overviewRoutes } from './modules/overview/overview.routes'
 
@@ -44,6 +45,7 @@ export function createApp(config: Config, db?: DbHandle): Hono<AppEnv> {
     app.route('/api/overview', overviewRoutes(db, config))
     app.route('/api/revenue', revenueRoutes(db, config))
     app.route('/api/users', adjustRoutes(config))
+    app.route('/api/users', upgradeRoutes(config))
     app.route('/api/users', usersRoutes(db, config))
     app.route('/api/ai', aiRoutes(config))
   }

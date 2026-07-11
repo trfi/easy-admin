@@ -1,4 +1,4 @@
-# Tasks: Easy-Admin MVP
+# Tasks: Easy Admin MVP
 
 Task breakdown for `docs/specs/easy-admin-mvp-plan.md`. This is the TASKS gate — review before IMPLEMENT.
 

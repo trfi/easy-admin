@@ -1,5 +1,10 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
-import { clearToken, getToken, login as apiLogin } from '@/lib/apiClient'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import {
+  clearToken,
+  getToken,
+  login as apiLogin,
+  SESSION_EXPIRED_EVENT,
+} from '@/lib/apiClient'
 
 interface AuthContextValue {
   isAuthenticated: boolean
@@ -11,6 +16,18 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => getToken() !== null)
+
+  useEffect(() => {
+    const handleSessionExpired = () => setIsAuthenticated(false)
+    const handleStorage = () => setIsAuthenticated(getToken() !== null)
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [])
 
   const login = async (username: string, password: string) => {
     await apiLogin(username, password)

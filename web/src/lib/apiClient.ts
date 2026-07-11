@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'easy-admin-token'
+export const SESSION_EXPIRED_EVENT = 'easy-admin:session-expired'
 
 export function getToken(): string | null {
   return window.localStorage.getItem(TOKEN_KEY)
@@ -34,6 +35,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   if (res.status === 401) {
     clearToken()
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
     throw new ApiError(401, 'Session expired')
   }
 

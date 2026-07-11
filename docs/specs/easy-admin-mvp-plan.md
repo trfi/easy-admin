@@ -1,4 +1,4 @@
-# Plan: Easy-Admin MVP
+# Plan: Easy Admin MVP
 
 Implementation plan for `docs/specs/easy-admin-mvp.md`. This is the PLAN gate — reviewable approach, not yet task-level.
 
