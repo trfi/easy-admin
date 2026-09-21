@@ -5,6 +5,7 @@ import type { AppEnv } from '../../app'
 import {
   getRevenue,
   getRevenueSeries,
+  getRevenueSummary,
   type RevenueFilter,
   type RevenuePageOptions,
   type SeriesInterval,
@@ -15,8 +16,12 @@ const STATUSES = ['Pending', 'Completed', 'Failed'] as const
 const CURRENCIES: Currency[] = ['VND', 'USD']
 const GATEWAYS = ['Bank', 'Wallet', 'Card'] as const
 
-function parseDate(value: string | undefined): Date | undefined {
+function parseDate(value: string | undefined, isEndOfDay = false): Date | undefined {
   if (!value) return undefined
+  if (isEndOfDay && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = new Date(`${value}T23:59:59.999Z`)
+    return Number.isNaN(d.getTime()) ? undefined : d
+  }
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? undefined : d
 }
@@ -27,7 +32,7 @@ function parseInt_(value: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-// Shared filter parsing for both the list and series endpoints.
+// Shared filter parsing for list, summary, and series endpoints.
 function parseFilter(q: Record<string, string>): RevenueFilter {
   const filter: RevenueFilter = {}
   if (q.status && STATUSES.includes(q.status as (typeof STATUSES)[number])) {
@@ -40,13 +45,23 @@ function parseFilter(q: Record<string, string>): RevenueFilter {
     filter.gateway = q.gateway as RevenueFilter['gateway']
   }
   if (q.userId) filter.userId = q.userId
-  filter.from = parseDate(q.from)
-  filter.to = parseDate(q.to)
+  filter.from = parseDate(q.from, false)
+  filter.to = parseDate(q.to, true)
   return filter
 }
 
 export function revenueRoutes(db: DbHandle, config: Config): Hono<AppEnv> {
   const router = new Hono<AppEnv>()
+
+  router.get('/summary', async (c) => {
+    const q = c.req.query()
+    const filter = parseFilter(q)
+    if (!filter.status) {
+      filter.status = 'Completed'
+    }
+    const summary = await getRevenueSummary(db, filter, config.usdToVndRate)
+    return c.json({ summary })
+  })
 
   router.get('/', async (c) => {
     const q = c.req.query()

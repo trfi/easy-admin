@@ -46,7 +46,9 @@ export interface RevenueResult {
   rows: PaymentRow[]
   summary: RevenueSummary
   todaySummary: RevenueSummary
+  yesterdaySummary: RevenueSummary
   thisMonthSummary: RevenueSummary
+  lastMonthSummary: RevenueSummary
   page: number
   limit: number
   total: number
@@ -64,6 +66,22 @@ export function monthStart(now: Date): Date {
 
 export function todayStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+}
+
+export function yesterdayStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
+}
+
+export function yesterdayEnd(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1)
+}
+
+export function lastMonthStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+}
+
+export function lastMonthEnd(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - 1)
 }
 
 // Build a Mongo filter for the payment-history collection from request query.
@@ -186,13 +204,33 @@ export async function getRevenue(
     status: baseFilter.status || 'Completed',
     from: todayStart(now),
   }
+  const yesterdayFilter: RevenueFilter = {
+    ...baseFilter,
+    status: baseFilter.status || 'Completed',
+    from: yesterdayStart(now),
+    to: yesterdayEnd(now),
+  }
   const thisMonthFilter: RevenueFilter = {
     ...baseFilter,
     status: baseFilter.status || 'Completed',
     from: monthStart(now),
   }
+  const lastMonthFilter: RevenueFilter = {
+    ...baseFilter,
+    status: baseFilter.status || 'Completed',
+    from: lastMonthStart(now),
+    to: lastMonthEnd(now),
+  }
 
-  const [docs, total, summary, todaySummary, thisMonthSummary] = await Promise.all([
+  const [
+    docs,
+    total,
+    summary,
+    todaySummary,
+    yesterdaySummary,
+    thisMonthSummary,
+    lastMonthSummary,
+  ] = await Promise.all([
     collection
       .find(mongoFilter)
       .sort({ createdAt: -1 })
@@ -202,11 +240,23 @@ export async function getRevenue(
     collection.countDocuments(mongoFilter),
     getRevenueSummary(db, filter, rate),
     getRevenueSummary(db, todayFilter, rate),
+    getRevenueSummary(db, yesterdayFilter, rate),
     getRevenueSummary(db, thisMonthFilter, rate),
+    getRevenueSummary(db, lastMonthFilter, rate),
   ])
 
   const rows = await attachPayers(db, docs.map(toPaymentView))
-  return { rows, summary, todaySummary, thisMonthSummary, page, limit, total }
+  return {
+    rows,
+    summary,
+    todaySummary,
+    yesterdaySummary,
+    thisMonthSummary,
+    lastMonthSummary,
+    page,
+    limit,
+    total,
+  }
 }
 
 // ── Time series for charts ──

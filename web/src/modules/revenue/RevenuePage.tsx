@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { DollarSign, Calendar as CalendarIcon, Filter, RotateCw } from 'lucide-react'
+import { DollarSign, Calendar as CalendarIcon, Filter, RotateCw, ChevronDown } from 'lucide-react'
+import type { DateRange } from 'react-day-picker'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -32,6 +33,7 @@ import { RevenueChart } from './RevenueChart'
 import {
   useRevenue,
   useRevenueSeries,
+  useRevenueSummary,
   type RevenueFilters,
   type PaymentStatus,
   type Currency,
@@ -54,6 +56,7 @@ function formatAmount(amount: number, currency: Currency): string {
 
 interface SummaryCardProps {
   title: string
+  subtitle?: string
   summary?: {
     unifiedVnd: number
     byCurrency: { VND: number; USD: number }
@@ -63,39 +66,63 @@ interface SummaryCardProps {
   gradientClass: string
   borderClass: string
   iconColorClass: string
+  headerAction?: React.ReactNode
+  isLoading?: boolean
 }
 
 function SummaryCard({
   title,
+  subtitle,
   summary,
   icon: Icon,
   gradientClass,
   borderClass,
   iconColorClass,
+  headerAction,
+  isLoading,
 }: SummaryCardProps) {
   return (
     <Card className={`overflow-hidden relative border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 bg-card/60 backdrop-blur-sm ${borderClass}`}>
       <div className={`absolute top-0 left-0 w-full h-[3px] bg-linear-to-r ${gradientClass}`} />
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-          {title}
-        </CardTitle>
-        <div className={`p-1.5 rounded-lg bg-secondary/50 border border-muted/50 ${iconColorClass}`}>
+        <div className="flex flex-col gap-0.5 min-w-0 pr-2">
+          <div className="flex items-center gap-1.5">
+            <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase truncate">
+              {title}
+            </CardTitle>
+            {headerAction}
+          </div>
+          {subtitle && (
+            <span className="text-[11px] text-muted-foreground/75 font-normal truncate">
+              {subtitle}
+            </span>
+          )}
+        </div>
+        <div className={`shrink-0 p-1.5 rounded-lg bg-secondary/50 border border-muted/50 ${iconColorClass}`}>
           <Icon className="h-4 w-4" />
         </div>
       </CardHeader>
       <CardContent className="pt-1">
-        <div className="text-3xl font-extrabold tracking-tight text-foreground">
-          {formatVnd(summary?.unifiedVnd ?? 0)}
-        </div>
-        <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground border-t border-muted/30 pt-2">
-          <span className="font-medium text-muted-foreground/90">
-            {formatVnd(summary?.byCurrency?.VND ?? 0)} + {formatUsd(summary?.byCurrency?.USD ?? 0)}
-          </span>
-          <span className="bg-secondary/70 px-2 py-0.5 rounded-full font-medium text-[12px] text-secondary-foreground border border-muted/30">
-            {summary?.count ?? 0} {summary?.count === 1 ? 'payment' : 'payments'}
-          </span>
-        </div>
+        {isLoading ? (
+          <div className="space-y-2 py-1">
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-4 w-48 mt-2" />
+          </div>
+        ) : (
+          <>
+            <div className="text-3xl font-extrabold tracking-tight text-foreground">
+              {formatVnd(summary?.unifiedVnd ?? 0)}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground border-t border-muted/30 pt-2">
+              <span className="font-medium text-muted-foreground/90">
+                {formatVnd(summary?.byCurrency?.VND ?? 0)} + {formatUsd(summary?.byCurrency?.USD ?? 0)}
+              </span>
+              <span className="bg-secondary/70 px-2 py-0.5 rounded-full font-medium text-[12px] text-secondary-foreground border border-muted/30">
+                {summary?.count ?? 0} {summary?.count === 1 ? 'payment' : 'payments'}
+              </span>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   )
@@ -123,19 +150,98 @@ const parseStringToDate = (str?: string) => {
   return new Date(year, month, day)
 }
 
+const getTodayLabel = () => formatDate(new Date().toISOString())
+
+const getYesterdayLabel = () => {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return formatDate(d.toISOString())
+}
+
+const getThisMonthLabel = () => {
+  const d = new Date()
+  return d.toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' })
+}
+
+const getLastMonthLabel = () => {
+  const d = new Date()
+  d.setMonth(d.getMonth() - 1)
+  return d.toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' })
+}
+
+type DayPeriod = 'today' | 'yesterday' | 'custom'
+type MonthPeriod = 'thisMonth' | 'lastMonth' | 'custom'
+
 export function RevenuePage() {
   const [filters, setFilters] = useState<RevenueFilters>({})
   const [page, setPage] = useState(1)
   const [interval, setInterval] = useState<SeriesInterval>('month')
 
-  const { data, isLoading, isError, error, isFetching, refetch: refetchRevenue } = useRevenue(filters, page, DEFAULT_LIMIT)
+  const [dayPeriod, setDayPeriod] = useState<DayPeriod>('today')
+  const [customDay, setCustomDay] = useState<Date | undefined>(undefined)
+  const [dayPopoverOpen, setDayPopoverOpen] = useState(false)
+
+  const [monthPeriod, setMonthPeriod] = useState<MonthPeriod>('thisMonth')
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined)
+  const [monthPopoverOpen, setMonthPopoverOpen] = useState(false)
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch: refetchRevenue,
+  } = useRevenue(filters, page, DEFAULT_LIMIT)
   const series = useRevenueSeries(filters, interval)
 
-  const isRefreshing = isFetching || series.isFetching
+  const baseCardFilters: RevenueFilters = {
+    status: filters.status || 'Completed',
+    currency: filters.currency,
+    gateway: filters.gateway,
+    userId: filters.userId,
+  }
+
+  const customDayStr =
+    dayPeriod === 'custom' && customDay ? formatDateToString(customDay) : undefined
+  const customDayQuery = useRevenueSummary(
+    {
+      ...baseCardFilters,
+      from: customDayStr,
+      to: customDayStr,
+    },
+    dayPeriod === 'custom' && Boolean(customDayStr)
+  )
+
+  const customRangeFromStr =
+    monthPeriod === 'custom' && customRange?.from
+      ? formatDateToString(customRange.from)
+      : undefined
+  const customRangeToStr =
+    monthPeriod === 'custom' && customRange?.from
+      ? formatDateToString(customRange.to ?? customRange.from)
+      : undefined
+
+  const customRangeQuery = useRevenueSummary(
+    {
+      ...baseCardFilters,
+      from: customRangeFromStr,
+      to: customRangeToStr,
+    },
+    monthPeriod === 'custom' && Boolean(customRangeFromStr)
+  )
+
+  const isRefreshing =
+    isFetching ||
+    series.isFetching ||
+    (dayPeriod === 'custom' && customDayQuery.isFetching) ||
+    (monthPeriod === 'custom' && customRangeQuery.isFetching)
 
   const handleRefresh = () => {
     refetchRevenue()
     series.refetch()
+    if (dayPeriod === 'custom') customDayQuery.refetch()
+    if (monthPeriod === 'custom') customRangeQuery.refetch()
   }
 
   function setFilter<K extends keyof RevenueFilters>(key: K, value: RevenueFilters[K]) {
@@ -148,9 +254,242 @@ export function RevenuePage() {
     })
   }
 
+  const activeDaySummary =
+    dayPeriod === 'today'
+      ? data?.todaySummary
+      : dayPeriod === 'yesterday'
+      ? data?.yesterdaySummary
+      : customDayQuery.data?.summary
+
+  const isDayLoading = dayPeriod === 'custom' ? customDayQuery.isLoading : isLoading
+
+  const dayTitle =
+    dayPeriod === 'today' ? 'Today' : dayPeriod === 'yesterday' ? 'Yesterday' : 'Custom Day'
+
+  const daySubtitle =
+    dayPeriod === 'today'
+      ? getTodayLabel()
+      : dayPeriod === 'yesterday'
+      ? getYesterdayLabel()
+      : customDay
+      ? formatDate(customDay.toISOString())
+      : 'Select a date'
+
+  const activeMonthSummary =
+    monthPeriod === 'thisMonth'
+      ? data?.thisMonthSummary
+      : monthPeriod === 'lastMonth'
+      ? data?.lastMonthSummary
+      : customRangeQuery.data?.summary
+
+  const isMonthLoading = monthPeriod === 'custom' ? customRangeQuery.isLoading : isLoading
+
+  const monthTitle =
+    monthPeriod === 'thisMonth'
+      ? 'This Month'
+      : monthPeriod === 'lastMonth'
+      ? 'Last Month'
+      : 'Custom Range'
+
+  const monthSubtitle =
+    monthPeriod === 'thisMonth'
+      ? getThisMonthLabel()
+      : monthPeriod === 'lastMonth'
+      ? getLastMonthLabel()
+      : customRange?.from
+      ? `${formatDate(customRange.from.toISOString())}${
+          customRange.to && customRange.to.getTime() !== customRange.from.getTime()
+            ? ` - ${formatDate(customRange.to.toISOString())}`
+            : ''
+        }`
+      : 'Select date range'
+
+  const hasActiveFilters = Boolean(
+    filters.status ||
+    filters.currency ||
+    filters.gateway ||
+    filters.userId ||
+    filters.from ||
+    filters.to
+  )
+  const totalSubtitle = hasActiveFilters ? 'Filtered results' : 'All-time total'
   const summary = data?.summary
-  const todaySummary = data?.todaySummary
-  const thisMonthSummary = data?.thisMonthSummary
+
+  const dayHeaderAction = (
+    <Popover open={dayPopoverOpen} onOpenChange={setDayPopoverOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/70 gap-0.5 rounded cursor-pointer"
+          title="Select date"
+        >
+          <CalendarIcon className="h-3 w-3" />
+          <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5 border-b border-border/50 pb-2">
+            <Button
+              variant={dayPeriod === 'today' ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs h-7 flex-1"
+              onClick={() => {
+                setDayPeriod('today')
+                setDayPopoverOpen(false)
+              }}
+            >
+              Today
+            </Button>
+            <Button
+              variant={dayPeriod === 'yesterday' ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs h-7 flex-1"
+              onClick={() => {
+                setDayPeriod('yesterday')
+                setDayPopoverOpen(false)
+              }}
+            >
+              Yesterday
+            </Button>
+          </div>
+          <div className="text-[11px] text-muted-foreground pt-0.5 font-medium">
+            Or pick a specific date:
+          </div>
+          <Calendar
+            mode="single"
+            captionLayout="dropdown"
+            startMonth={new Date(2023, 0)}
+            endMonth={new Date(2030, 11)}
+            selected={dayPeriod === 'custom' ? customDay : undefined}
+            onSelect={(date) => {
+              if (date) {
+                setCustomDay(date)
+                setDayPeriod('custom')
+                setDayPopoverOpen(false)
+              }
+            }}
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+
+  const monthHeaderAction = (
+    <Popover open={monthPopoverOpen} onOpenChange={setMonthPopoverOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/70 gap-0.5 rounded cursor-pointer"
+          title="Select period"
+        >
+          <CalendarIcon className="h-3 w-3" />
+          <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border/50 pb-2">
+            <Button
+              variant={monthPeriod === 'thisMonth' ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                setMonthPeriod('thisMonth')
+                setMonthPopoverOpen(false)
+              }}
+            >
+              This Month
+            </Button>
+            <Button
+              variant={monthPeriod === 'lastMonth' ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                setMonthPeriod('lastMonth')
+                setMonthPopoverOpen(false)
+              }}
+            >
+              Last Month
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                const now = new Date()
+                const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)
+                setCustomRange({ from, to: now })
+                setMonthPeriod('custom')
+                setMonthPopoverOpen(false)
+              }}
+            >
+              Last 7 Days
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                const now = new Date()
+                const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+                setCustomRange({ from, to: now })
+                setMonthPeriod('custom')
+                setMonthPopoverOpen(false)
+              }}
+            >
+              Last 30 Days
+            </Button>
+          </div>
+
+          <Calendar
+            mode="range"
+            defaultMonth={customRange?.from ?? new Date()}
+            selected={customRange}
+            onSelect={(range) => {
+              setCustomRange(range)
+              if (range?.from) {
+                setMonthPeriod('custom')
+              }
+            }}
+            numberOfMonths={2}
+            captionLayout="dropdown"
+            startMonth={new Date(2023, 0)}
+            endMonth={new Date(2030, 11)}
+          />
+
+          <div className="flex items-center justify-between border-t border-border/50 pt-2 text-xs">
+            <span className="text-muted-foreground">
+              {customRange?.from ? (
+                customRange.to ? (
+                  <>
+                    Selected: <span className="font-medium text-foreground">{formatDate(customRange.from.toISOString())}</span> – <span className="font-medium text-foreground">{formatDate(customRange.to.toISOString())}</span>
+                  </>
+                ) : (
+                  <>
+                    From: <span className="font-medium text-foreground">{formatDate(customRange.from.toISOString())}</span> (select end date)
+                  </>
+                )
+              ) : (
+                'Select start date and end date'
+              )}
+            </span>
+            {customRange?.from && (
+              <Button
+                size="sm"
+                className="h-7 text-xs px-3"
+                onClick={() => setMonthPopoverOpen(false)}
+              >
+                Apply
+              </Button>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -172,28 +511,36 @@ export function RevenuePage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <SummaryCard
-          title="Today"
-          summary={todaySummary}
+          title={dayTitle}
+          subtitle={daySubtitle}
+          summary={activeDaySummary}
           icon={DollarSign}
-          gradientClass="from-gray-700 to-gray-600"
-          borderClass="hover:border-gray-700/20"
-          iconColorClass="text-gray-600"
+          gradientClass="from-zinc-700 to-zinc-600"
+          borderClass="hover:border-zinc-500/30"
+          iconColorClass="text-zinc-600 dark:text-zinc-400"
+          headerAction={dayHeaderAction}
+          isLoading={isDayLoading}
         />
         <SummaryCard
-          title="This Month"
-          summary={thisMonthSummary}
+          title={monthTitle}
+          subtitle={monthSubtitle}
+          summary={activeMonthSummary}
           icon={CalendarIcon}
-          gradientClass="from-gray-700 to-gray-600"
-          borderClass="hover:border-gray-700/20"
-          iconColorClass="text-gray-600"
+          gradientClass="from-zinc-700 to-zinc-600"
+          borderClass="hover:border-zinc-500/30"
+          iconColorClass="text-zinc-600 dark:text-zinc-400"
+          headerAction={monthHeaderAction}
+          isLoading={isMonthLoading}
         />
         <SummaryCard
           title="Total"
+          subtitle={totalSubtitle}
           summary={summary}
           icon={Filter}
-          gradientClass="from-gray-700 to-gray-600"
-          borderClass="hover:border-gray-700/20"
-          iconColorClass="text-gray-600"
+          gradientClass="from-zinc-700 to-zinc-600"
+          borderClass="hover:border-zinc-500/30"
+          iconColorClass="text-zinc-600 dark:text-zinc-400"
+          isLoading={isLoading}
         />
       </div>
 

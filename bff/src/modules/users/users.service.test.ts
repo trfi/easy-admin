@@ -9,8 +9,14 @@ import {
   clampPage,
   escapeRegex,
   dayStart,
+  yesterdayStart,
+  yesterdayEnd,
   weekStart,
+  lastWeekStart,
+  lastWeekEnd,
   monthStart,
+  lastMonthStart,
+  lastMonthEnd,
   daysAgo,
 } from './users.service'
 import { toAdminUserView, type UserDoc } from '../../db/readModels'
@@ -35,13 +41,14 @@ describe('buildUserSearchFilter', () => {
     expect(buildUserSearchFilter('   ')).toEqual({})
   })
 
-  it('builds a case-insensitive $or across email/username/name', () => {
+  it('builds a case-insensitive $or across email/username/name/code', () => {
     const filter = buildUserSearchFilter('alice')
     expect(filter).toEqual({
       $or: [
         { email: { $regex: 'alice', $options: 'i' } },
         { username: { $regex: 'alice', $options: 'i' } },
         { name: { $regex: 'alice', $options: 'i' } },
+        { code: { $regex: 'alice', $options: 'i' } },
       ],
     })
   })
@@ -144,6 +151,11 @@ describe('toAdminUserView', () => {
     expect(view.lastLoginApp).toBeUndefined()
     expect(view.connectedApps).toEqual([])
   })
+
+  it('maps code when present', () => {
+    const view = toAdminUserView(baseDoc({ code: 'ABC123' }))
+    expect(view.code).toBe('ABC123')
+  })
 })
 
 describe('active user stats pipelines', () => {
@@ -152,6 +164,19 @@ describe('active user stats pipelines', () => {
 
     expect(buildActiveUserMatch(since)).toEqual({
       createdAt: { $gte: since },
+      source: { $ne: 'daily_free' },
+      'metadata.source': { $ne: 'daily_free' },
+      type: { $ne: 'Daily' },
+      reason: { $ne: 'daily_free' },
+    })
+  })
+
+  it('supports an optional until upper bound', () => {
+    const since = new Date('2026-06-10T00:00:00Z')
+    const until = new Date('2026-06-15T23:59:59.999Z')
+
+    expect(buildActiveUserMatch(since, until)).toEqual({
+      createdAt: { $gte: since, $lte: until },
       source: { $ne: 'daily_free' },
       'metadata.source': { $ne: 'daily_free' },
       type: { $ne: 'Daily' },
@@ -196,6 +221,14 @@ describe('dayStart', () => {
   })
 })
 
+describe('yesterdayStart and yesterdayEnd', () => {
+  it('returns yesterday start and end in UTC', () => {
+    const now = new Date('2026-06-16T14:30:00Z')
+    expect(yesterdayStart(now)).toEqual(new Date('2026-06-15T00:00:00.000Z'))
+    expect(yesterdayEnd(now)).toEqual(new Date('2026-06-15T23:59:59.999Z'))
+  })
+})
+
 describe('weekStart', () => {
   it('returns Monday for a Tuesday', () => {
     // 2026-06-16 is a Tuesday; week starts Monday 2026-06-15
@@ -212,9 +245,31 @@ describe('weekStart', () => {
   })
 })
 
+describe('lastWeekStart and lastWeekEnd', () => {
+  it('returns previous Monday 00:00:00 to Sunday 23:59:59.999 UTC', () => {
+    const now = new Date('2026-06-16T14:30:00Z') // Tuesday
+    expect(lastWeekStart(now)).toEqual(new Date('2026-06-08T00:00:00.000Z'))
+    expect(lastWeekEnd(now)).toEqual(new Date('2026-06-14T23:59:59.999Z'))
+  })
+})
+
 describe('monthStart', () => {
   it('returns the first of the month at midnight UTC', () => {
     expect(monthStart(new Date('2026-06-16T14:30:00Z'))).toEqual(new Date('2026-06-01T00:00:00Z'))
+  })
+})
+
+describe('lastMonthStart and lastMonthEnd', () => {
+  it('returns previous month 1st to last millisecond of previous month', () => {
+    const now = new Date('2026-06-16T14:30:00Z')
+    expect(lastMonthStart(now)).toEqual(new Date('2026-05-01T00:00:00.000Z'))
+    expect(lastMonthEnd(now)).toEqual(new Date('2026-05-31T23:59:59.999Z'))
+  })
+
+  it('handles January roll-over to previous December', () => {
+    const janNow = new Date('2026-01-10T10:00:00Z')
+    expect(lastMonthStart(janNow)).toEqual(new Date('2025-12-01T00:00:00.000Z'))
+    expect(lastMonthEnd(janNow)).toEqual(new Date('2025-12-31T23:59:59.999Z'))
   })
 })
 
@@ -225,3 +280,4 @@ describe('daysAgo', () => {
     expect(daysAgo(now, 29)).toEqual(new Date('2026-05-18T00:00:00Z'))
   })
 })
+

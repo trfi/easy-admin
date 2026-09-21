@@ -17,13 +17,6 @@ export function formatAppName(app?: string | null): string {
   }
 }
 
-const APP_STYLES: Record<string, string> = {
-  easyquiz: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  hepi: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-  extension: 'border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400',
-  search: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
-}
-
 export function AppBadge({
   app,
   className,
@@ -35,13 +28,13 @@ export function AppBadge({
     return <span className="text-sm font-medium text-muted-foreground">—</span>
   }
 
-  const key = app.toLowerCase()
-  const customStyle = APP_STYLES[key] ?? 'border-border bg-muted/60 text-foreground'
-
   return (
     <Badge
       variant="outline"
-      className={cn('font-medium text-xs px-2 py-0.5', customStyle, className)}
+      className={cn(
+        'font-medium text-xs px-2 py-0.5 border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 dark:border-zinc-700 dark:bg-zinc-800/60',
+        className
+      )}
     >
       {formatAppName(app)}
     </Badge>

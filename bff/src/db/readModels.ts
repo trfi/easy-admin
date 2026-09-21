@@ -37,6 +37,7 @@ export interface AdminUserView {
   name?: string
   email: string
   username?: string
+  code?: string
   role: 'Admin' | 'User'
   avatar?: string | null
   plan?: UserPlanView
@@ -57,6 +58,7 @@ export interface UserDoc {
   name?: string
   email: string
   username?: string
+  code?: string
   role?: 'Admin' | 'User'
   avatar?: string | null
   plan?: UserPlanView
@@ -79,6 +81,7 @@ export function toAdminUserView(doc: UserDoc): AdminUserView {
     name: doc.name,
     email: doc.email,
     username: doc.username,
+    code: doc.code,
     role: doc.role ?? 'User',
     avatar: doc.avatar ?? null,
     plan: doc.plan,

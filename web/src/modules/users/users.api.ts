@@ -24,6 +24,7 @@ export interface AdminUserView {
   name?: string
   email: string
   username?: string
+  code?: string
   role: 'Admin' | 'User'
   avatar?: string | null
   plan?: UserPlanView
@@ -88,19 +89,40 @@ export interface UserStatsPoint {
 
 export interface UserStats {
   activeToday: number
+  activeYesterday: number
   activeThisMonth: number
+  activeLastMonth: number
   newToday: number
+  newYesterday: number
   newThisWeek: number
+  newLastWeek: number
   newThisMonth: number
+  newLastMonth: number
   newByDay: UserStatsPoint[]
   activeByDay: UserStatsPoint[]
+  customActive?: number
+  customNew?: number
 }
 
-export function useUserStats() {
+export interface UserStatsQueryOptions {
+  from?: string
+  to?: string
+  days?: number
+}
+
+export function useUserStats(options?: UserStatsQueryOptions, enabled = true) {
   return useQuery({
-    queryKey: ['user-stats'],
-    queryFn: () => apiFetch<UserStats>('/users/stats'),
+    queryKey: ['user-stats', options?.from, options?.to, options?.days],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (options?.from) params.set('from', options.from)
+      if (options?.to) params.set('to', options.to)
+      if (options?.days) params.set('days', String(options.days))
+      const query = params.toString()
+      return apiFetch<UserStats>(query ? `/users/stats?${query}` : '/users/stats')
+    },
     staleTime: 5 * 60 * 1000,
+    enabled,
   })
 }
 

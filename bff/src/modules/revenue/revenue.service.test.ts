@@ -9,6 +9,10 @@ import {
   toUnifiedVnd,
   monthStart,
   todayStart,
+  yesterdayStart,
+  yesterdayEnd,
+  lastMonthStart,
+  lastMonthEnd,
   type CurrencyGroup,
   type RevenueFilter,
 } from './revenue.service'
@@ -153,5 +157,39 @@ describe('monthStart / todayStart', () => {
   it('returns the first instant of today in UTC', () => {
     const d = new Date('2026-06-19T13:56:10Z')
     expect(todayStart(d).toISOString()).toBe('2026-06-19T00:00:00.000Z')
+  })
+})
+
+describe('yesterdayStart / yesterdayEnd', () => {
+  it('returns start and end of yesterday in UTC', () => {
+    const d = new Date('2026-06-19T13:56:10Z')
+    expect(yesterdayStart(d).toISOString()).toBe('2026-06-18T00:00:00.000Z')
+    expect(yesterdayEnd(d).toISOString()).toBe('2026-06-18T23:59:59.999Z')
+  })
+
+  it('handles month boundary correctly', () => {
+    const d = new Date('2026-03-01T05:00:00Z')
+    expect(yesterdayStart(d).toISOString()).toBe('2026-02-28T00:00:00.000Z')
+    expect(yesterdayEnd(d).toISOString()).toBe('2026-02-28T23:59:59.999Z')
+  })
+
+  it('handles year boundary correctly', () => {
+    const d = new Date('2026-01-01T00:10:00Z')
+    expect(yesterdayStart(d).toISOString()).toBe('2025-12-31T00:00:00.000Z')
+    expect(yesterdayEnd(d).toISOString()).toBe('2025-12-31T23:59:59.999Z')
+  })
+})
+
+describe('lastMonthStart / lastMonthEnd', () => {
+  it('returns start and end of previous month in UTC', () => {
+    const d = new Date('2026-06-19T13:56:10Z')
+    expect(lastMonthStart(d).toISOString()).toBe('2026-05-01T00:00:00.000Z')
+    expect(lastMonthEnd(d).toISOString()).toBe('2026-05-31T23:59:59.999Z')
+  })
+
+  it('handles January correctly rolling back to previous December', () => {
+    const d = new Date('2026-01-15T10:00:00Z')
+    expect(lastMonthStart(d).toISOString()).toBe('2025-12-01T00:00:00.000Z')
+    expect(lastMonthEnd(d).toISOString()).toBe('2025-12-31T23:59:59.999Z')
   })
 })

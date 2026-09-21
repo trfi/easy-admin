@@ -1,4 +1,4 @@
-import { Sparkles, Loader2 } from 'lucide-react'
+import { Sparkles, Loader2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +25,13 @@ export function UserDetail({ user }: { user: AdminUserView }) {
     }
   }
 
+  const handleCopyCode = () => {
+    if (user.code) {
+      navigator.clipboard.writeText(user.code)
+      toast.success(`Copied user code: ${user.code}`)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -43,7 +50,10 @@ export function UserDetail({ user }: { user: AdminUserView }) {
                 {user.role === 'Admin' && <Badge variant="secondary">Admin</Badge>}
                 {user.isBlacklisted && <Badge variant="destructive">Blacklisted</Badge>}
                 {user.plan?.isTrial && (
-                  <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                  <Badge
+                    variant="outline"
+                    className="border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 dark:border-zinc-700 dark:bg-zinc-800/60"
+                  >
                     Trial
                   </Badge>
                 )}
@@ -51,24 +61,23 @@ export function UserDetail({ user }: { user: AdminUserView }) {
               <div className="text-xs text-muted-foreground mt-0.5 truncate">{user.email}</div>
             </div>
           </div>
-          <Button
-            variant={user.plan?.isTrial ? 'outline' : 'default'}
-            size="sm"
-            onClick={handleActivateTrial}
-            disabled={activateTrial.isPending}
-            className="shrink-0 gap-1.5 self-start sm:self-auto"
-          >
-            {activateTrial.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4 text-amber-500" />
-            )}
-            {user.plan?.isTrial ? 'Extend Trial (+3d)' : 'Activate Trial'}
-          </Button>
         </CardHeader>
         <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          <Field label="Email" value={user.email} />
           <Field label="Username" value={user.username ?? '—'} />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">User code</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="inline-flex items-center gap-1 font-mono text-xs border border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 dark:border-zinc-700 dark:bg-zinc-800/60 px-2 py-0.5 rounded-full hover:bg-zinc-500/20 cursor-pointer transition-colors"
+                title="Click to copy user code"
+              >
+                <span>{user.code}</span>
+                <Copy className="h-3 w-3 opacity-60" />
+              </button>
+            </div>
+          </div>
           <Field label="Joined" value={formatDate(user.createdAt)} />
           <Field label="Last updated" value={formatDate(user.updatedAt)} />
           <div className="flex flex-col gap-0.5">
@@ -83,7 +92,7 @@ export function UserDetail({ user }: { user: AdminUserView }) {
               <AppBadge app={user.lastLoginApp} />
             </div>
           </div>
-          <div className="flex flex-col gap-0.5 col-span-2">
+          <div className="flex flex-col gap-0.5 col-span-2 sm:col-span-1">
             <span className="text-xs text-muted-foreground">Connected Apps</span>
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
               {user.connectedApps && user.connectedApps.length > 0 ? (
@@ -148,8 +157,22 @@ export function UserDetail({ user }: { user: AdminUserView }) {
 
         <TabsContent value="upgrade" className="pt-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="text-base">Upgrade plan</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleActivateTrial}
+                disabled={activateTrial.isPending}
+                className="shrink-0 gap-1.5"
+              >
+                {activateTrial.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                )}
+                {user.plan?.isTrial ? 'Extend Trial (3d)' : 'Activate Trial'}
+              </Button>
             </CardHeader>
             <CardContent>
               <UpgradePlanForm user={user} />

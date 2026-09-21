@@ -72,7 +72,7 @@ export function UsersPage() {
       <UserStatsPanel />
 
       <Input
-        placeholder="Search by email, username, or name…"
+        placeholder="Search by email, username, name, or code…"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)
@@ -123,7 +123,7 @@ export function UsersPage() {
                   <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>
                       {u.points.total.toLocaleString()} pts · {u.plan?.name ?? 'No plan'}
-                      {u.plan?.isTrial && ' (Trial)'}
+                      {u.plan?.isTrial && ' Trial'}
                     </span>
                     {u.connectedApps && u.connectedApps.length > 1 && (
                       <span className="text-[11px] text-muted-foreground/80" title={`Connected: ${u.connectedApps.join(', ')}`}>

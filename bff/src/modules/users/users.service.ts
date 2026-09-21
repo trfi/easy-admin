@@ -15,17 +15,32 @@ export interface UserStatsPoint {
 
 export interface UserStats {
   activeToday: number
+  activeYesterday: number
   activeThisMonth: number
+  activeLastMonth: number
   newToday: number
+  newYesterday: number
   newThisWeek: number
+  newLastWeek: number
   newThisMonth: number
+  newLastMonth: number
   newByDay: UserStatsPoint[]
   activeByDay: UserStatsPoint[]
+  customActive?: number
+  customNew?: number
 }
 
 // Pure date helpers — injectable `now` makes them unit-testable.
 export function dayStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+}
+
+export function yesterdayStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
+}
+
+export function yesterdayEnd(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1)
 }
 
 export function weekStart(now: Date): Date {
@@ -35,8 +50,26 @@ export function weekStart(now: Date): Date {
   return d
 }
 
+export function lastWeekStart(now: Date): Date {
+  const currentWeek = weekStart(now)
+  return new Date(currentWeek.getTime() - 7 * 86400000)
+}
+
+export function lastWeekEnd(now: Date): Date {
+  const currentWeek = weekStart(now)
+  return new Date(currentWeek.getTime() - 1)
+}
+
 export function monthStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+}
+
+export function lastMonthStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+}
+
+export function lastMonthEnd(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - 1)
 }
 
 export function daysAgo(now: Date, n: number): Date {
@@ -69,13 +102,13 @@ export function escapeRegex(input: string): string {
 }
 
 // Build a Mongo filter for user search. Pure — no DB access.
-// Matches the trimmed term against email, username, or name (case-insensitive).
+// Matches the trimmed term against email, username, name, or code (case-insensitive).
 export function buildUserSearchFilter(q: string | undefined): Filter<UserDoc> {
   const term = q?.trim()
   if (!term) return {}
 
   const rx = { $regex: escapeRegex(term), $options: 'i' }
-  return { $or: [{ email: rx }, { username: rx }, { name: rx }] }
+  return { $or: [{ email: rx }, { username: rx }, { name: rx }, { code: rx }] }
 }
 
 export function clampLimit(limit: number | undefined): number {
@@ -88,9 +121,11 @@ export function clampPage(page: number | undefined): number {
   return Math.floor(page)
 }
 
-export function buildActiveUserMatch(since: Date): Filter<PointTransactionDoc> {
+export function buildActiveUserMatch(since: Date, until?: Date): Filter<PointTransactionDoc> {
+  const range: Record<string, Date> = { $gte: since }
+  if (until) range.$lte = until
   return {
-    createdAt: { $gte: since },
+    createdAt: range,
     source: { $ne: DAILY_FREE_SOURCE },
     'metadata.source': { $ne: DAILY_FREE_SOURCE },
     type: { $ne: DAILY_TYPE },
@@ -98,18 +133,18 @@ export function buildActiveUserMatch(since: Date): Filter<PointTransactionDoc> {
   } as Filter<PointTransactionDoc>
 }
 
-export function buildActiveUserCountPipeline(since: Date): Document[] {
+export function buildActiveUserCountPipeline(since: Date, until?: Date): Document[] {
   return [
-    { $match: buildActiveUserMatch(since) },
+    { $match: buildActiveUserMatch(since, until) },
     { $group: { _id: ACTIVE_USER_EXPR } },
     { $match: { _id: { $ne: null } } },
     { $count: 'count' },
   ]
 }
 
-export function buildActiveUsersByDayPipeline(since: Date): Document[] {
+export function buildActiveUsersByDayPipeline(since: Date, until?: Date): Document[] {
   return [
-    { $match: buildActiveUserMatch(since) },
+    { $match: buildActiveUserMatch(since, until) },
     {
       $group: {
         _id: {
@@ -124,12 +159,23 @@ export function buildActiveUsersByDayPipeline(since: Date): Document[] {
   ]
 }
 
-async function countActiveUsers(
+export async function countActiveUsers(
   collection: Collection<PointTransactionDoc>,
-  since: Date
+  since: Date,
+  until?: Date
 ): Promise<number> {
-  const [result] = await collection.aggregate<{ count: number }>(buildActiveUserCountPipeline(since)).toArray()
+  const [result] = await collection.aggregate<{ count: number }>(buildActiveUserCountPipeline(since, until)).toArray()
   return result?.count ?? 0
+}
+
+export async function countNewUsers(
+  collection: Collection<UserDoc>,
+  since: Date,
+  until?: Date
+): Promise<number> {
+  const range: Record<string, Date> = { $gte: since }
+  if (until) range.$lte = until
+  return collection.countDocuments({ createdAt: range })
 }
 
 export async function searchUsers(
@@ -164,40 +210,100 @@ export async function getUserById(db: DbHandle, id: string): Promise<AdminUserVi
   return doc ? toAdminUserView(doc) : null
 }
 
-export async function getUserStats(db: DbHandle, now: Date = new Date()): Promise<UserStats> {
+export interface UserStatsOptions {
+  from?: Date
+  to?: Date
+  days?: number
+}
+
+export async function getUserStats(
+  db: DbHandle,
+  options?: UserStatsOptions,
+  now: Date = new Date()
+): Promise<UserStats> {
   const usersCollection = db.collection<UserDoc>(COLLECTIONS.users)
   const pointTransactions = db.collection<PointTransactionDoc>(COLLECTIONS.pointTransaction)
   const today = dayStart(now)
+  const yStart = yesterdayStart(now)
+  const yEnd = yesterdayEnd(now)
   const week = weekStart(now)
+  const lwStart = lastWeekStart(now)
+  const lwEnd = lastWeekEnd(now)
   const month = monthStart(now)
-  const thirtyDaysAgo = daysAgo(now, 29)
+  const lmStart = lastMonthStart(now)
+  const lmEnd = lastMonthEnd(now)
 
-  const [activeToday, activeThisMonth, newToday, newThisWeek, newThisMonth, newByDayRaw, activeByDayRaw] =
-    await Promise.all([
-      countActiveUsers(pointTransactions, today),
-      countActiveUsers(pointTransactions, month),
-      usersCollection.countDocuments({ createdAt: { $gte: today } }),
-      usersCollection.countDocuments({ createdAt: { $gte: week } }),
-      usersCollection.countDocuments({ createdAt: { $gte: month } }),
-      usersCollection
-        .aggregate<{ _id: string; count: number }>([
-          { $match: { createdAt: { $gte: thirtyDaysAgo } } },
-          { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
-          { $sort: { _id: 1 } },
-        ])
-        .toArray(),
-      pointTransactions
-        .aggregate<{ _id: string; count: number }>(buildActiveUsersByDayPipeline(thirtyDaysAgo))
-        .toArray(),
-    ])
+  let chartFrom: Date
+  let chartTo: Date | undefined
+
+  if (options?.from) {
+    chartFrom = options.from
+    chartTo = options.to
+  } else {
+    const numDays = options?.days && options.days > 0 ? options.days : 30
+    chartFrom = daysAgo(now, numDays - 1)
+    chartTo = undefined
+  }
+
+  const newRangeMatch: Record<string, Date> = { $gte: chartFrom }
+  if (chartTo) newRangeMatch.$lte = chartTo
+
+  const isCustomRangeRequested = Boolean(options?.from)
+
+  const [
+    activeToday,
+    activeYesterday,
+    activeThisMonth,
+    activeLastMonth,
+    newToday,
+    newYesterday,
+    newThisWeek,
+    newLastWeek,
+    newThisMonth,
+    newLastMonth,
+    newByDayRaw,
+    activeByDayRaw,
+    customActive,
+    customNew,
+  ] = await Promise.all([
+    countActiveUsers(pointTransactions, today),
+    countActiveUsers(pointTransactions, yStart, yEnd),
+    countActiveUsers(pointTransactions, month),
+    countActiveUsers(pointTransactions, lmStart, lmEnd),
+    countNewUsers(usersCollection, today),
+    countNewUsers(usersCollection, yStart, yEnd),
+    countNewUsers(usersCollection, week),
+    countNewUsers(usersCollection, lwStart, lwEnd),
+    countNewUsers(usersCollection, month),
+    countNewUsers(usersCollection, lmStart, lmEnd),
+    usersCollection
+      .aggregate<{ _id: string; count: number }>([
+        { $match: { createdAt: newRangeMatch } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray(),
+    pointTransactions
+      .aggregate<{ _id: string; count: number }>(buildActiveUsersByDayPipeline(chartFrom, chartTo))
+      .toArray(),
+    isCustomRangeRequested && options?.from ? countActiveUsers(pointTransactions, options.from, options.to) : undefined,
+    isCustomRangeRequested && options?.from ? countNewUsers(usersCollection, options.from, options.to) : undefined,
+  ])
 
   return {
     activeToday,
+    activeYesterday,
     activeThisMonth,
+    activeLastMonth,
     newToday,
+    newYesterday,
     newThisWeek,
+    newLastWeek,
     newThisMonth,
+    newLastMonth,
     newByDay: newByDayRaw.map((r) => ({ date: r._id, count: r.count })),
     activeByDay: activeByDayRaw.map((r) => ({ date: r._id, count: r.count })),
+    customActive,
+    customNew,
   }
 }

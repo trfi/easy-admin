@@ -4,6 +4,16 @@ import type { DbHandle } from '../../db/client'
 import type { Config } from '../../config'
 import { searchUsers, getUserById, getUserStats } from './users.service'
 
+function parseDate(value: string | undefined, isEndOfDay = false): Date | undefined {
+  if (!value) return undefined
+  if (isEndOfDay && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = new Date(`${value}T23:59:59.999Z`)
+    return Number.isNaN(d.getTime()) ? undefined : d
+  }
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? undefined : d
+}
+
 export function usersRoutes(db: DbHandle, _config: Config): Hono<AppEnv> {
   const router = new Hono<AppEnv>()
 
@@ -20,7 +30,11 @@ export function usersRoutes(db: DbHandle, _config: Config): Hono<AppEnv> {
   })
 
   router.get('/stats', async (c) => {
-    const stats = await getUserStats(db)
+    const from = parseDate(c.req.query('from'), false)
+    const to = parseDate(c.req.query('to'), true)
+    const daysRaw = c.req.query('days')
+    const days = daysRaw ? Number(daysRaw) : undefined
+    const stats = await getUserStats(db, { from, to, days })
     return c.json(stats)
   })
 

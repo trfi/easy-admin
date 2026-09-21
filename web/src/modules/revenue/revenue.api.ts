@@ -36,7 +36,9 @@ export interface RevenueResponse {
   rows: PaymentRow[]
   summary: RevenueSummary
   todaySummary: RevenueSummary
+  yesterdaySummary: RevenueSummary
   thisMonthSummary: RevenueSummary
+  lastMonthSummary: RevenueSummary
   page: number
   limit: number
   total: number
@@ -91,3 +93,20 @@ export function useRevenueSeries(filters: RevenueFilters, interval: SeriesInterv
     placeholderData: keepPreviousData,
   })
 }
+
+export interface RevenueSummaryResponse {
+  summary: RevenueSummary
+}
+
+export function useRevenueSummary(filters: RevenueFilters, enabled = true) {
+  return useQuery({
+    queryKey: ['revenue', 'summary', filters],
+    queryFn: () =>
+      apiFetch<RevenueSummaryResponse>(
+        `/revenue/summary${toQuery(filters as Record<string, string | number | undefined>)}`
+      ),
+    enabled: enabled && Boolean(filters.from || filters.to),
+    placeholderData: keepPreviousData,
+  })
+}
+
