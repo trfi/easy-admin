@@ -31,6 +31,9 @@ export interface AdminUserView {
   subscriptionPackage?: string
   isBlacklisted?: boolean
   trialActivatedAt?: string
+  sourceApp?: string
+  lastLoginApp?: string
+  connectedApps?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -136,6 +139,30 @@ export function useUpgradePlan() {
       qc.invalidateQueries({ queryKey: ['user', userId] })
       qc.invalidateQueries({ queryKey: ['users'] })
       qc.invalidateQueries({ queryKey: ['revenue'] })
+    },
+  })
+}
+
+export interface ActivateTrialResult {
+  success: boolean
+  message: string
+  data?: {
+    plan?: unknown
+    pointsAdded?: number
+  }
+}
+
+export function useActivateTrial() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiFetch<ActivateTrialResult>(`/users/${userId}/trial/activate`, {
+        method: 'POST',
+      }),
+    onSuccess: (_data, userId) => {
+      qc.invalidateQueries({ queryKey: ['user', userId] })
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['user-stats'] })
     },
   })
 }

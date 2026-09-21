@@ -44,6 +44,9 @@ export interface AdminUserView {
   subscriptionPackage?: string
   isBlacklisted?: boolean
   trialActivatedAt?: Date
+  sourceApp?: string
+  lastLoginApp?: string
+  connectedApps?: string[]
   createdAt: Date
   updatedAt: Date
 }
@@ -61,6 +64,9 @@ export interface UserDoc {
   subscriptionPackage?: string
   isBlacklisted?: boolean
   trialActivatedAt?: Date
+  sourceApp?: string
+  lastLoginApp?: string
+  connectedApps?: string[]
   createdAt: Date
   updatedAt: Date
 }
@@ -86,6 +92,9 @@ export function toAdminUserView(doc: UserDoc): AdminUserView {
     subscriptionPackage: doc.subscriptionPackage,
     isBlacklisted: doc.isBlacklisted,
     trialActivatedAt: doc.trialActivatedAt,
+    sourceApp: doc.sourceApp,
+    lastLoginApp: doc.lastLoginApp,
+    connectedApps: doc.connectedApps ?? (doc.sourceApp ? [doc.sourceApp] : []),
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   }

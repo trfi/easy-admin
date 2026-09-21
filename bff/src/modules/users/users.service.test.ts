@@ -118,6 +118,32 @@ describe('toAdminUserView', () => {
   it('defaults avatar to null', () => {
     expect(toAdminUserView(baseDoc()).avatar).toBeNull()
   })
+
+  it('maps sourceApp, lastLoginApp, and connectedApps when present', () => {
+    const view = toAdminUserView(
+      baseDoc({
+        sourceApp: 'easyquiz',
+        lastLoginApp: 'hepi',
+        connectedApps: ['easyquiz', 'hepi'],
+      })
+    )
+    expect(view.sourceApp).toBe('easyquiz')
+    expect(view.lastLoginApp).toBe('hepi')
+    expect(view.connectedApps).toEqual(['easyquiz', 'hepi'])
+  })
+
+  it('defaults connectedApps to [sourceApp] when connectedApps is absent but sourceApp exists', () => {
+    const view = toAdminUserView(baseDoc({ sourceApp: 'hepi' }))
+    expect(view.sourceApp).toBe('hepi')
+    expect(view.connectedApps).toEqual(['hepi'])
+  })
+
+  it('defaults connectedApps to empty array when neither exists', () => {
+    const view = toAdminUserView(baseDoc())
+    expect(view.sourceApp).toBeUndefined()
+    expect(view.lastLoginApp).toBeUndefined()
+    expect(view.connectedApps).toEqual([])
+  })
 })
 
 describe('active user stats pipelines', () => {

@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "build:zip": "7z a -tzip ./deploy.zip -xr!node_modules -xr!.git -xr!.env -xr!dist -xr!deploy.zip -xr!docs -xr!.agents -xr!.claude -xr!.codegraph ./*"
+    "deploy": "bun run scripts/deploy.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",

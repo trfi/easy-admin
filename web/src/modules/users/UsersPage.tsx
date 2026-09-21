@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useUsers, useUser, useUserStats } from './users.api'
 import { UserDetail } from './UserDetail'
 import { UserStatsPanel } from './UserStatsPanel'
+import { AppBadge } from './AppBadge'
 
 const DEFAULT_LIMIT = 10
 
@@ -111,11 +112,24 @@ export function UsersPage() {
                     <span className="truncate font-medium">
                       {u.name ?? u.username ?? u.email}
                     </span>
-                    {u.role === 'Admin' && <Badge variant="secondary">Admin</Badge>}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {u.sourceApp && (
+                        <AppBadge app={u.sourceApp} className="text-[10px] h-4.5 px-1.5" />
+                      )}
+                      {u.role === 'Admin' && <Badge variant="secondary">Admin</Badge>}
+                    </div>
                   </div>
                   <div className="truncate text-xs text-muted-foreground">{u.email}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {u.points.total.toLocaleString()} pts · {u.plan?.name ?? 'No plan'}
+                  <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {u.points.total.toLocaleString()} pts · {u.plan?.name ?? 'No plan'}
+                      {u.plan?.isTrial && ' (Trial)'}
+                    </span>
+                    {u.connectedApps && u.connectedApps.length > 1 && (
+                      <span className="text-[11px] text-muted-foreground/80" title={`Connected: ${u.connectedApps.join(', ')}`}>
+                        {u.connectedApps.length} apps
+                      </span>
+                    )}
                   </div>
                 </div>
               </button>

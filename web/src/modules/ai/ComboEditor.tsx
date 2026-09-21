@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { FlaskConical, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { Check, FlaskConical, GripVertical, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -56,11 +57,68 @@ export function ComboEditor({
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
   const [mode, setMode] = useState<'auto' | 'generate' | 'stream'>('stream')
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
 
   const saving = update.isPending || reorder.isPending || removeCandidate.isPending
 
   const onError = (err: unknown) => {
     toast.error(err instanceof ApiError ? err.message : 'Request failed')
+  }
+
+  function startEdit(index: number, candidate: AiModelComboCandidate) {
+    setEditingIndex(index)
+    setEditText(`${candidate.providerId}/${candidate.modelId}`)
+  }
+
+  function cancelEdit() {
+    setEditingIndex(null)
+    setEditText('')
+  }
+
+  function handleSaveEdit(e?: React.FormEvent) {
+    if (e) e.preventDefault()
+    if (editingIndex === null) return
+
+    const raw = editText.trim()
+    const sep = raw.indexOf('/')
+    if (sep <= 0 || sep === raw.length - 1) {
+      toast.error("Candidate must be in 'providerId/modelId' format (e.g. google/claude-opus-4-6)")
+      return
+    }
+
+    const providerId = raw.slice(0, sep).trim()
+    const modelId = raw.slice(sep + 1).trim()
+    const current = combo.candidates[editingIndex]
+
+    if (current && current.providerId === providerId && current.modelId === modelId) {
+      cancelEdit()
+      return
+    }
+
+    const isDuplicate = combo.candidates.some(
+      (c, i) => i !== editingIndex && c.providerId === providerId && c.modelId === modelId
+    )
+    if (isDuplicate) {
+      toast.error(`Duplicate candidate: ${providerId}/${modelId}`)
+      return
+    }
+
+    const candidates = combo.candidates.map(
+      (c, i): AiModelComboCandidate =>
+        i === editingIndex ? { ...c, providerId, modelId } : c
+    )
+
+    update.mutate(
+      { comboId: combo.comboId, input: { candidates } },
+      {
+        onSuccess: () => {
+          toast.success(`Updated candidate to ${providerId}/${modelId}`)
+          cancelEdit()
+        },
+        onError,
+      }
+    )
   }
 
   function toggleCombo(active: boolean) {
@@ -183,61 +241,122 @@ export function ComboEditor({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        {combo.candidates.map((candidate, index) => (
-          <div
-            key={`${candidate.providerId}:${candidate.modelId}`}
-            draggable={!saving}
-            onDragStart={() => setDragIndex(index)}
-            onDragEnter={() => dragIndex !== null && setOverIndex(index)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => onDrop(index)}
-            onDragEnd={() => {
-              setDragIndex(null)
-              setOverIndex(null)
-            }}
-            className={cn(
-              'flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
-              dragIndex === index && 'opacity-50',
-              overIndex === index && dragIndex !== index && 'border-primary bg-primary/5'
-            )}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <GripVertical
-                className={cn(
-                  'h-4 w-4 shrink-0 text-muted-foreground',
-                  saving ? 'cursor-not-allowed' : 'cursor-grab'
+        {combo.candidates.map((candidate, index) => {
+          const isEditing = editingIndex === index
+          return (
+            <div
+              key={`${candidate.providerId}:${candidate.modelId}`}
+              draggable={!saving && editingIndex === null}
+              onDragStart={() => setDragIndex(index)}
+              onDragEnter={() => dragIndex !== null && setOverIndex(index)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => onDrop(index)}
+              onDragEnd={() => {
+                setDragIndex(null)
+                setOverIndex(null)
+              }}
+              className={cn(
+                'flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
+                dragIndex === index && 'opacity-50',
+                overIndex === index && dragIndex !== index && 'border-primary bg-primary/5'
+              )}
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <GripVertical
+                  className={cn(
+                    'h-4 w-4 shrink-0 text-muted-foreground',
+                    saving || editingIndex !== null
+                      ? 'cursor-not-allowed opacity-40'
+                      : 'cursor-grab'
+                  )}
+                  aria-hidden
+                />
+                <span className="text-xs text-muted-foreground shrink-0">{index + 1}</span>
+
+                {isEditing ? (
+                  <form onSubmit={handleSaveEdit} className="flex min-w-0 flex-1 items-center gap-1">
+                    <Input
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      placeholder="provider/model"
+                      className="h-7 text-xs font-mono py-0 px-2 flex-1"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          e.preventDefault()
+                          cancelEdit()
+                        }
+                      }}
+                      disabled={update.isPending}
+                    />
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+                      disabled={update.isPending}
+                      title="Save candidate (Enter)"
+                    >
+                      {update.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={cancelEdit}
+                      disabled={update.isPending}
+                      title="Cancel (Esc)"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    className="group flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-left transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    onClick={() => startEdit(index, candidate)}
+                    disabled={saving}
+                    title="Click to edit candidate"
+                  >
+                    <span className="truncate font-medium font-mono text-xs">
+                      {candidate.providerId}/{candidate.modelId}
+                    </span>
+                    <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </button>
                 )}
-                aria-hidden
-              />
-              <span className="text-xs text-muted-foreground">{index + 1}</span>
-              <span className="truncate font-medium">{candidate.providerId}/{candidate.modelId}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Switch
+                  checked={candidate.active}
+                  onCheckedChange={(active) => toggleCandidate(index, active)}
+                  disabled={saving || isEditing}
+                  aria-label={`Toggle candidate ${candidate.modelId}`}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => onRemoveCandidate(candidate)}
+                  disabled={saving || isEditing || combo.candidates.length <= 1}
+                  aria-label={`Remove ${candidate.modelId}`}
+                  title={
+                    combo.candidates.length <= 1
+                      ? 'A combo must keep at least one candidate'
+                      : undefined
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Switch
-                checked={candidate.active}
-                onCheckedChange={(active) => toggleCandidate(index, active)}
-                disabled={saving}
-                aria-label={`Toggle candidate ${candidate.modelId}`}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                onClick={() => onRemoveCandidate(candidate)}
-                disabled={saving || combo.candidates.length <= 1}
-                aria-label={`Remove ${candidate.modelId}`}
-                title={
-                  combo.candidates.length <= 1
-                    ? 'A combo must keep at least one candidate'
-                    : undefined
-                }
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
 
         {test.data && (
           <TestResult

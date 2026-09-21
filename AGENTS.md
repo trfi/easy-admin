@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Agents when working with code in this repository.
 
 ## What this is
 
@@ -16,6 +16,7 @@ bun run typecheck                    # tsc --noEmit across web + bff
 bun run test                         # vitest run across web + bff
 bun run lint                         # eslint .
 bun run format                       # prettier --write .
+bun run deploy                       # build zip & deploy to Dokploy
 ```
 
 Per-workspace (run with `cd web` / `cd bff`, or `bun run --filter @easy-admin/web <script>`):
@@ -57,6 +58,29 @@ The four modules are `overview`, `revenue`, `users`, `ai`. Frontend and backend 
 
 The BFF **owns its own read models** over the shared collections. It never imports the apps' Mongoose models and uses the native `mongodb` driver directly. Collection names in `readModels.ts` `COLLECTIONS` are Mongoose's default pluralizations (e.g. `paymenthistories`) — verified against both source repos, do not guess.
 
+### Upstream repositories & shared DB workflow
+
+The shared `easyquiz` MongoDB is co-owned by two external sibling repos on the host machine:
+
+1. **EasyQuiz** (`D:\T\Work\Easyquizpoly\EasyQuiz\easyquiz-repo`):
+   - Monorepo containing `apps/api`, `apps/auth`, and `packages/base-api`.
+   - **User model & schemas**: `packages/base-api/src/models/user.model.ts` (defines `sourceApp`, `lastLoginApp`, `connectedApps`, `points`, `plan`).
+   - **Upstream endpoints** (authenticated with `X-Admin-Secret`):
+     - `POST /user/plan/upgrade` (`apps/api/src/routes/user.routes.ts`) — manual plan upgrades and payment logging.
+     - `POST /user/:id/points/adjust` (`apps/api/src/routes/user.routes.ts`) — points adjustment with transaction logging.
+
+2. **Hepi** (`D:\T\Work\hepi`):
+   - Backend API server under `server/src/`.
+   - **User model & schemas**: `server/src/models/user.model.ts`.
+   - **Upstream endpoints** (authenticated with `X-Admin-Secret`):
+     - `/ai-models/*` (`server/src/routes/ai-models.route.ts`) — AI providers, combos, and live testing.
+     - `POST /user/activate-trial` (`server/src/routes/user.route.ts` & `server/src/services/user.service.ts`) — 3-day Premium trial activation + 200 expiring points grant.
+
+**Workflow rules when working with upstream repos:**
+- **Inspect local source before guessing**: Refer to the sibling paths above to inspect real schemas, fields, default values, and upstream route signatures.
+- **Never mutate shared collections directly**: The BFF is strictly read-only against Mongo (`bff/src/db/client.ts` guard). All mutations (points, plans, trials, AI config) must proxy to the respective upstream service.
+- **Do not edit external repos without permission**: EasyQuiz and Hepi are independent repositories. Consult the user before modifying code outside this `easy-admin` workspace.
+
 ### AI config is owned by Hepi, not the BFF
 
 The `ai` module does **not** read or write the AI-config collections. Every provider/combo operation (list, create, update, delete, reorder, and live test) proxies to Hepi's `/ai-models` admin API via `bff/src/lib/hepiClient.ts`, authenticated with an `X-Admin-Secret` header. Hepi serves that config from a 60s in-memory cache and owns all write invariants (provider-referenced-by-combo guards, duplicate-candidate detection, soft-delete) plus the live-test path (only Hepi has the AI SDK). The BFF validates input at its boundary first (`ai.validate.ts`, mirroring Hepi's zod schemas) so bad requests fail fast. This is the same pattern as the points-adjust proxy to EasyQuiz.
@@ -66,6 +90,8 @@ The `ai` module does **not** read or write the AI-config collections. Every prov
 - **`apiKey` stripping**: Hepi never returns a raw `apiKey` (only a masked `apiKeyPreview`). `toProviderView` in `bff/src/modules/ai/ai.service.ts` is the *only* place a Hepi provider DTO crosses into a BFF view, and it re-maps fields explicitly (never spreads) so even a future Hepi change couldn't leak a raw key. Never return or log `apiKey`.
 - **DB write guard**: `bff/src/db/client.ts` wraps every collection in a Proxy (`guardCollection`) that throws `WriteNotAllowedError` on any write op. `WRITABLE_COLLECTIONS` is empty — the BFF is fully read-only over Mongo. All writes proxy to EasyQuiz (points) or Hepi (AI config).
 - **Points are never mutated locally**: point adjustments proxy to the external EasyQuiz API (`POST /user/:id/points/adjust` with an `X-Admin-Secret` header) — see `bff/src/modules/users/adjust.service.ts`. The money logic + transaction logging live in EasyQuiz, not here. Validate at the BFF boundary first (positive only, max `MAX_ADJUSTMENT` = 10000).
+- **Plan upgrades proxy to EasyQuiz**: `POST /user/plan/upgrade` with `X-Admin-Secret` — see `bff/src/modules/users/upgrade.service.ts`. EasyQuiz validates prices, methods, references, and handles payment ledger logging.
+- **Trial activations proxy to Hepi**: `POST /user/activate-trial` with `X-Admin-Secret` — see `bff/src/modules/users/trial.service.ts`. Hepi grants 3-day Premium trials, adds 200 expiring points, and updates trial timestamps.
 - **Revenue reads `paymenthistories` only**, never `pointtransactions` (which has a 365-day TTL → silent data loss). The currency conversion rule lives in `toUnifiedVnd` (`revenue.service.ts`) and nowhere else; the rate comes from `config.usdToVndRate`, never inlined.
 
 ### Config & auth
@@ -92,6 +118,6 @@ vitest for both workspaces; React Testing Library + jsdom for components (`web/s
 
 ## Ask first
 
-- Any change to the EasyQuiz repo (the `serviceAuth` middleware + `/points/adjust` route) or the Hepi repo (the `/ai-models` admin API + its `X-Admin-Secret` guard) — both are separate repos.
+- Any change to the EasyQuiz repo (`D:\T\Work\Easyquizpoly\EasyQuiz\easyquiz-repo`) or the Hepi repo (`D:\T\Work\hepi`) — both are separate repos.
 - Any schema/index change to the shared Mongo, or any direct write to a Mongo collection (the BFF is read-only; AI config writes go through Hepi).
 - Adding dependencies beyond the existing stack.

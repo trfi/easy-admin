@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { TableCell, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,10 +64,16 @@ export function StatusRow({ status }: { status: AiModelStatusView }) {
     )
   }
 
+  const detail = status.disabledReason ?? status.lastErrorMessage ?? null
+
   return (
     <TableRow>
-      <TableCell className="font-medium">{status.model}</TableCell>
-      <TableCell>
+      <TableCell className="font-medium">
+        <span className="block truncate cursor-default select-all">
+          {status.model}
+        </span>
+      </TableCell>
+      <TableCell className="whitespace-nowrap">
         {!status.active ? (
           <Badge variant="destructive">disabled</Badge>
         ) : status.failureCount > 0 ? (
@@ -77,11 +84,24 @@ export function StatusRow({ status }: { status: AiModelStatusView }) {
           <Badge variant="outline">healthy</Badge>
         )}
       </TableCell>
-      <TableCell className="text-muted-foreground">
-        {status.disabledReason ?? status.lastErrorMessage ?? '—'}
+      <TableCell className="text-muted-foreground max-w-[280px] lg:max-w-[400px] overflow-hidden">
+        {detail ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="block truncate cursor-default select-all">
+                {detail}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-md break-words whitespace-pre-wrap font-mono text-xs">
+              {detail}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          '—'
+        )}
       </TableCell>
-      <TableCell className="text-muted-foreground">{status.failureCount}</TableCell>
-      <TableCell className="text-muted-foreground">{formatDateTime(status.lastFailureAt)}</TableCell>
+      <TableCell className="text-muted-foreground whitespace-nowrap">{status.failureCount}</TableCell>
+      <TableCell className="text-muted-foreground whitespace-nowrap">{formatDateTime(status.lastFailureAt)}</TableCell>
       <TableCell>
         <Switch
           checked={status.active}

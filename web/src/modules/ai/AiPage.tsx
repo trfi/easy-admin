@@ -228,7 +228,7 @@ export function AiPage() {
                   <TableRow>
                     <TableHead>Model</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Detail</TableHead>
+                    <TableHead className="max-w-[280px] lg:max-w-[400px]">Detail</TableHead>
                     <TableHead>Failures</TableHead>
                     <TableHead>Last failure</TableHead>
                     <TableHead>Active</TableHead>
