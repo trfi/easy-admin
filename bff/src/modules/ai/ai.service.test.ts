@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Config } from '../../config'
-import { resetModelFailures, toModelDefaultsView, toProviderView, toSelectableModelView } from './ai.service'
+import {
+  createSelectableModel,
+  listSelectableModels,
+  reorderSelectableModel,
+  resetModelFailures,
+  toModelDefaultsView,
+  toProviderView,
+  toSelectableModelView,
+} from './ai.service'
 
 // Hepi already strips apiKey server-side, but R3 says the BFF must be the place a
 // provider object becomes a client view — and it must never let a raw apiKey
@@ -159,5 +167,193 @@ describe('resetModelFailures proxy', () => {
     expect(init.headers['X-Admin-Secret']).toBe('secret-key-123')
     expect(JSON.parse(init.body)).toEqual({ model: 'openai/gpt-4o-mini' })
     expect(res.failureCount).toBe(0)
+  })
+})
+
+describe('createSelectableModel — auto-shift remaining models', () => {
+  const mockConfig: Config = {
+    mongoUri: 'mongodb://localhost:27017/test',
+    jwtSecret: 'secret',
+    adminUsername: 'admin',
+    adminPassword: 'pw',
+    adminSecret: 'secret-key-123',
+    easyApiUrl: 'https://api.example.test',
+    hepiApiUrl: 'https://hepi.example.test',
+    usdToVndRate: 26309,
+    port: 3010,
+  }
+
+  it('shifts remaining models down when inserting in the middle', async () => {
+    const existing = [
+      { id: 'm1', label: 'M1', points: 1, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 1 },
+      { id: 'm2', label: 'M2', points: 2, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 2 },
+      { id: 'm3', label: 'M3', points: 3, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 3 },
+    ]
+
+    const calls: { url: string; method: string; body?: unknown }[] = []
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+      calls.push({ url, method: init.method ?? 'GET', body: init.body ? JSON.parse(init.body as string) : undefined })
+      if (init.method === 'GET' && url.endsWith('/ai-models/selectable')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ models: existing }),
+        }
+      }
+      if (init.method === 'POST' && url.endsWith('/ai-models/selectable')) {
+        const body = JSON.parse(init.body as string)
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ model: { ...body } }),
+        }
+      }
+      if (init.method === 'PATCH') {
+        const body = JSON.parse(init.body as string)
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ model: { id: 'patched', ...body } }),
+        }
+      }
+      return { ok: true, status: 200, json: async () => ({}) }
+    })
+
+    const result = await createSelectableModel(
+      {
+        id: 'new-model',
+        label: 'New Model',
+        points: 5,
+        accessTier: 'pro',
+        supportsImage: true,
+        comboId: 'c1',
+        sortOrder: 2,
+      },
+      mockConfig,
+      fetchMock as unknown as typeof fetch
+    )
+
+    expect(result.id).toBe('new-model')
+    expect(result.sortOrder).toBe(2)
+
+    // Verify calls:
+    // 1. GET /ai-models/selectable
+    // 2. POST /ai-models/selectable with sortOrder 2
+    // 3. PATCH m3 to sortOrder 4 (reverse order)
+    // 4. PATCH m2 to sortOrder 3
+    const patchCalls = calls.filter((c) => c.method === 'PATCH')
+    expect(patchCalls).toHaveLength(2)
+    expect(patchCalls[0]).toEqual({
+      url: 'https://hepi.example.test/ai-models/selectable/m3',
+      method: 'PATCH',
+      body: { sortOrder: 4 },
+    })
+    expect(patchCalls[1]).toEqual({
+      url: 'https://hepi.example.test/ai-models/selectable/m2',
+      method: 'PATCH',
+      body: { sortOrder: 3 },
+    })
+  })
+
+  it('does not shift any models when appending at the end', async () => {
+    const existing = [
+      { id: 'm1', label: 'M1', points: 1, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 1 },
+      { id: 'm2', label: 'M2', points: 2, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 2 },
+    ]
+
+    const calls: { url: string; method: string }[] = []
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+      calls.push({ url, method: init.method ?? 'GET' })
+      if (init.method === 'GET') {
+        return { ok: true, status: 200, json: async () => ({ models: existing }) }
+      }
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ model: { id: 'm3', sortOrder: 3, label: 'M3', points: 1, accessTier: 'free', supportsImage: false, comboId: 'c1' } }),
+      }
+    })
+
+    await createSelectableModel(
+      {
+        id: 'm3',
+        label: 'M3',
+        points: 1,
+        accessTier: 'free',
+        supportsImage: false,
+        comboId: 'c1',
+      },
+      mockConfig,
+      fetchMock as unknown as typeof fetch
+    )
+
+    const patchCalls = calls.filter((c) => c.method === 'PATCH')
+    expect(patchCalls).toHaveLength(0)
+  })
+})
+
+describe('reorderSelectableModel', () => {
+  const mockConfig: Config = {
+    mongoUri: 'mongodb://localhost:27017/test',
+    jwtSecret: 'secret',
+    adminUsername: 'admin',
+    adminPassword: 'pw',
+    adminSecret: 'secret-key-123',
+    easyApiUrl: 'https://api.example.test',
+    hepiApiUrl: 'https://hepi.example.test',
+    usdToVndRate: 26309,
+    port: 3010,
+  }
+
+  it('reorders a model from end to top and updates shifted models', async () => {
+    const modelsState = [
+      { id: 'm1', label: 'M1', points: 1, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 1 },
+      { id: 'm2', label: 'M2', points: 2, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 2 },
+      { id: 'm3', label: 'M3', points: 3, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 3 },
+    ]
+
+    const patchCalls: { url: string; body: unknown }[] = []
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+      if (init.method === 'GET' && url.endsWith('/ai-models/selectable')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ models: modelsState }),
+        }
+      }
+      if (init.method === 'PATCH') {
+        const body = JSON.parse(init.body as string)
+        patchCalls.push({ url, body })
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ model: { id: 'patched', ...body } }),
+        }
+      }
+      return { ok: true, status: 200, json: async () => ({}) }
+    })
+
+    // Move m3 to position 1
+    await reorderSelectableModel('m3', 1, mockConfig, fetchMock as unknown as typeof fetch)
+
+    // Expected new order: m3 (1), m1 (2), m2 (3)
+    expect(patchCalls).toHaveLength(3)
+    expect(patchCalls).toEqual([
+      { url: 'https://hepi.example.test/ai-models/selectable/m3', body: { sortOrder: 1 } },
+      { url: 'https://hepi.example.test/ai-models/selectable/m1', body: { sortOrder: 2 } },
+      { url: 'https://hepi.example.test/ai-models/selectable/m2', body: { sortOrder: 3 } },
+    ])
+  })
+
+  it('throws 404 when model is not found', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ models: [] }),
+    })
+
+    await expect(
+      reorderSelectableModel('non-existent', 1, mockConfig, fetchMock as unknown as typeof fetch)
+    ).rejects.toThrow(/not found/)
   })
 })

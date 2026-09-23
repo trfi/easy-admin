@@ -34,11 +34,13 @@ export function SelectableModelDialog({
   onOpenChange,
   model,
   combos,
+  existingCount = 0,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   model?: SelectableModelView
   combos: AiModelComboView[]
+  existingCount?: number
 }) {
   const editing = model !== undefined
   const create = useCreateSelectableModel()
@@ -47,11 +49,11 @@ export function SelectableModelDialog({
 
   const [id, setId] = useState('')
   const [label, setLabel] = useState('')
-  const [points, setPoints] = useState('0')
-  const [accessTier, setAccessTier] = useState('')
+  const [points, setPoints] = useState('1')
+  const [accessTier, setAccessTier] = useState('free')
   const [comboId, setComboId] = useState('')
-  const [sortOrder, setSortOrder] = useState('0')
-  const [supportsImage, setSupportsImage] = useState(false)
+  const [sortOrder, setSortOrder] = useState('1')
+  const [supportsImage, setSupportsImage] = useState(true)
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -59,14 +61,14 @@ export function SelectableModelDialog({
     if (!open) return
     setId(model?.id ?? '')
     setLabel(model?.label ?? '')
-    setPoints(String(model?.points ?? 0))
-    setAccessTier(model?.accessTier ?? '')
+    setPoints(String(model?.points ?? 1))
+    setAccessTier(model?.accessTier ?? 'free')
     setComboId(model?.comboId ?? '')
-    setSortOrder(String(model?.sortOrder ?? 0))
-    setSupportsImage(model?.supportsImage ?? false)
+    setSortOrder(String(model ? model.sortOrder : existingCount + 1))
+    setSupportsImage(model?.supportsImage ?? true)
     setActive(model?.active ?? true)
     setError(null)
-  }, [open, model])
+  }, [open, model, existingCount])
 
   function validate(): string | null {
     if (!id.trim()) return 'ID is required'
@@ -187,12 +189,15 @@ export function SelectableModelDialog({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="sm-tier">Access tier</Label>
-              <Input
-                id="sm-tier"
-                value={accessTier}
-                onChange={(e) => setAccessTier(e.target.value)}
-                placeholder="free"
-              />
+              <Select value={accessTier} onValueChange={setAccessTier}>
+                <SelectTrigger id="sm-tier">
+                  <SelectValue placeholder="Select an access tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">free</SelectItem>
+                  <SelectItem value="premium">premium</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -216,9 +221,13 @@ export function SelectableModelDialog({
               <Input
                 id="sm-sort"
                 type="number"
+                min="1"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Adding a model in the middle will automatically shift remaining models down.
+              </p>
             </div>
 
             <div className="flex items-center justify-between">

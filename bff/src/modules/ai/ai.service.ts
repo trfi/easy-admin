@@ -1,5 +1,5 @@
 import type { Config } from '../../config'
-import { hepiRequest } from '../../lib/hepiClient'
+import { hepiRequest, HepiUpstreamError } from '../../lib/hepiClient'
 import type {
   AiModelComboView,
   AiModelDefaultsView,
@@ -346,40 +346,116 @@ export function toSelectableModelView(dto: HepiSelectableModelDto): SelectableMo
   }
 }
 
-export async function listSelectableModels(config: Config): Promise<SelectableModelView[]> {
+export async function listSelectableModels(
+  config: Config,
+  fetchImpl: typeof fetch = fetch
+): Promise<SelectableModelView[]> {
   const { models } = await hepiRequest<{ models: HepiSelectableModelDto[] }>(
     { method: 'GET', path: '/ai-models/selectable' },
-    config
+    config,
+    fetchImpl
   )
   return models.map(toSelectableModelView)
 }
 
 export async function createSelectableModel(
   input: SelectableModelCreateInput,
-  config: Config
+  config: Config,
+  fetchImpl: typeof fetch = fetch
 ): Promise<SelectableModelView> {
+  const existing = await listSelectableModels(config, fetchImpl)
+
+  let targetOrder =
+    input.sortOrder !== undefined && input.sortOrder > 0
+      ? input.sortOrder
+      : existing.length + 1
+
+  if (targetOrder > existing.length + 1) {
+    targetOrder = existing.length + 1
+  }
+
   const { model } = await hepiRequest<{ model: HepiSelectableModelDto }>(
-    { method: 'POST', path: '/ai-models/selectable', body: input },
-    config
+    {
+      method: 'POST',
+      path: '/ai-models/selectable',
+      body: { ...input, sortOrder: targetOrder },
+    },
+    config,
+    fetchImpl
   )
+
+  // When adding a model in the middle, shift remaining models down sequentially
+  if (targetOrder <= existing.length) {
+    const toShift = existing.slice(targetOrder - 1)
+    for (let i = toShift.length - 1; i >= 0; i--) {
+      const item = toShift[i]!
+      const newSort = targetOrder + i + 1
+      await updateSelectableModel(item.id, { sortOrder: newSort }, config, fetchImpl)
+    }
+  }
+
   return toSelectableModelView(model)
 }
 
 export async function updateSelectableModel(
   id: string,
   input: SelectableModelUpdateInput,
-  config: Config
+  config: Config,
+  fetchImpl: typeof fetch = fetch
 ): Promise<SelectableModelView> {
   const { model } = await hepiRequest<{ model: HepiSelectableModelDto }>(
     { method: 'PATCH', path: `/ai-models/selectable/${encodeURIComponent(id)}`, body: input },
-    config
+    config,
+    fetchImpl
   )
   return toSelectableModelView(model)
 }
 
-export async function deleteSelectableModel(id: string, config: Config): Promise<void> {
+export async function deleteSelectableModel(
+  id: string,
+  config: Config,
+  fetchImpl: typeof fetch = fetch
+): Promise<void> {
   await hepiRequest<{ success: boolean }>(
     { method: 'DELETE', path: `/ai-models/selectable/${encodeURIComponent(id)}` },
-    config
+    config,
+    fetchImpl
   )
+}
+
+export async function reorderSelectableModel(
+  id: string,
+  targetOrder: number,
+  config: Config,
+  fetchImpl: typeof fetch = fetch
+): Promise<SelectableModelView[]> {
+  const models = await listSelectableModels(config, fetchImpl)
+  const fromIndex = models.findIndex((m) => m.id === id)
+  if (fromIndex === -1) {
+    throw new HepiUpstreamError(404, `Selectable model "${id}" not found`)
+  }
+
+  const clampedOrder = Math.max(1, Math.min(targetOrder, models.length))
+  const toIndex = clampedOrder - 1
+
+  const reordered = [...models]
+  const [moved] = reordered.splice(fromIndex, 1)
+  if (!moved) return models
+  reordered.splice(toIndex, 0, moved)
+
+  // Identify which models need a sortOrder update
+  const updates: { id: string; sortOrder: number }[] = []
+  for (let i = 0; i < reordered.length; i++) {
+    const item = reordered[i]!
+    const expectedSort = i + 1
+    if (item.sortOrder !== expectedSort) {
+      updates.push({ id: item.id, sortOrder: expectedSort })
+    }
+  }
+
+  for (const u of updates) {
+    await updateSelectableModel(u.id, { sortOrder: u.sortOrder }, config, fetchImpl)
+  }
+
+  return listSelectableModels(config, fetchImpl)
 }

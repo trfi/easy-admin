@@ -12,6 +12,7 @@ import {
   validateProviderUpdate,
   validateQuizDefaultsUpdate,
   validateSelectableModelCreate,
+  validateSelectableModelReorder,
   validateSelectableModelUpdate,
   validateTest,
 } from './ai.validate'
@@ -309,5 +310,26 @@ describe('validateSelectableModelUpdate', () => {
   it('accepts all fields together', () => {
     const input = { id: 'x', label: 'X', points: 5, accessTier: 'free', supportsImage: false, comboId: 'c1', active: true, sortOrder: 1 }
     expect(validateSelectableModelUpdate(input)).toEqual(input)
+  })
+})
+
+describe('validateSelectableModelReorder', () => {
+  it('accepts a valid positive integer order', () => {
+    expect(validateSelectableModelReorder({ order: 1 })).toEqual({ order: 1 })
+    expect(validateSelectableModelReorder({ order: 15 })).toEqual({ order: 15 })
+  })
+
+  it('rejects non-positive order', () => {
+    expect(() => validateSelectableModelReorder({ order: 0 })).toThrow(/positive integer/)
+    expect(() => validateSelectableModelReorder({ order: -1 })).toThrow(/positive integer/)
+  })
+
+  it('rejects non-integer order', () => {
+    expect(() => validateSelectableModelReorder({ order: 1.5 })).toThrow(/positive integer/)
+  })
+
+  it('rejects non-numeric order', () => {
+    expect(() => validateSelectableModelReorder({ order: '1' })).toThrow(/positive integer/)
+    expect(() => validateSelectableModelReorder({})).toThrow(/positive integer/)
   })
 })

@@ -236,6 +236,19 @@ export function validateSelectableModelId(value: unknown): string {
   return requireString(value, 'id', 200)
 }
 
+export interface SelectableModelReorderInput {
+  order: number
+}
+
+export function validateSelectableModelReorder(
+  input: Record<string, unknown>
+): SelectableModelReorderInput {
+  if (typeof input.order !== 'number' || !Number.isInteger(input.order) || input.order < 1) {
+    throw new AiValidationError('order must be a positive integer')
+  }
+  return { order: input.order }
+}
+
 export interface ChatDefaultUpdateInput {
   modelId: string
 }

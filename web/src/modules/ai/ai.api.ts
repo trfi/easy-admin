@@ -487,3 +487,44 @@ export function useDeleteSelectableModel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: SELECTABLE_MODELS_KEY }),
   })
 }
+
+export function useReorderSelectableModel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, order }: { id: string; order: number }) =>
+      apiFetch<{ models: SelectableModelView[] }>(
+        `/ai/selectable-models/${encodeURIComponent(id)}/reorder`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ order }),
+        }
+      ),
+    onMutate: async ({ id, order }) => {
+      await qc.cancelQueries({ queryKey: SELECTABLE_MODELS_KEY })
+      const previous = qc.getQueryData<{ models: SelectableModelView[] }>(SELECTABLE_MODELS_KEY)
+      if (previous) {
+        const models = [...previous.models]
+        const fromIndex = models.findIndex((m) => m.id === id)
+        if (fromIndex !== -1) {
+          const clampedOrder = Math.max(1, Math.min(order, models.length))
+          const toIndex = clampedOrder - 1
+          const [moved] = models.splice(fromIndex, 1)
+          if (moved) {
+            models.splice(toIndex, 0, moved)
+            const updated = models.map((m, i) => ({ ...m, sortOrder: i + 1 }))
+            qc.setQueryData(SELECTABLE_MODELS_KEY, { models: updated })
+          }
+        }
+      }
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(SELECTABLE_MODELS_KEY, context.previous)
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: SELECTABLE_MODELS_KEY })
+    },
+  })
+}

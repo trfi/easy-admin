@@ -19,6 +19,7 @@ import {
   validateQuizDefaultsUpdate,
   validateSelectableModelCreate,
   validateSelectableModelId,
+  validateSelectableModelReorder,
   validateSelectableModelUpdate,
   validateTest,
 } from './ai.validate'
@@ -39,6 +40,7 @@ import {
   listSelectableModels,
   listStatus,
   reorderComboCandidate,
+  reorderSelectableModel,
   resetModelFailures,
   testCombo,
   testProvider,
@@ -233,10 +235,29 @@ export function aiRoutes(config: Config): Hono<AppEnv> {
     })
   )
 
+  router.post('/selectable-models/:id/reorder', (c) =>
+    guard(c, async () => {
+      const id = validateSelectableModelId(c.req.param('id'))
+      const { order } = validateSelectableModelReorder(await readJson(c))
+      return c.json({ models: await reorderSelectableModel(id, order, config) })
+    })
+  )
+
   router.patch('/selectable-models/:id', (c) =>
     guard(c, async () => {
       const id = validateSelectableModelId(c.req.param('id'))
       const input = validateSelectableModelUpdate(await readJson(c))
+      if (input.sortOrder !== undefined) {
+        const { sortOrder, ...otherFields } = input
+        let updated
+        if (Object.keys(otherFields).length > 0) {
+          updated = await updateSelectableModel(id, otherFields, config)
+        }
+        await reorderSelectableModel(id, sortOrder, config)
+        const models = await listSelectableModels(config)
+        const finalModel = models.find((m) => m.id === id) ?? updated
+        return c.json({ model: finalModel })
+      }
       return c.json({ model: await updateSelectableModel(id, input, config) })
     })
   )

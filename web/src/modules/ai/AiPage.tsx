@@ -14,11 +14,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { toast } from 'sonner'
+import { ApiError } from '@/lib/apiClient'
 import {
   useProviders,
   useCombos,
   useStatus,
   useSelectableModels,
+  useReorderSelectableModel,
   type AiProviderView,
   type SelectableModelView,
 } from './ai.api'
@@ -61,6 +64,27 @@ export function AiPage() {
   const [comboDialogOpen, setComboDialogOpen] = useState(false)
   const [modelDialogOpen, setModelDialogOpen] = useState(false)
   const [editModel, setEditModel] = useState<SelectableModelView | undefined>(undefined)
+  const reorderModel = useReorderSelectableModel()
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [overIndex, setOverIndex] = useState<number | null>(null)
+
+  function handleModelDrop(targetIndex: number) {
+    const from = dragIndex
+    setDragIndex(null)
+    setOverIndex(null)
+    if (from === null || from === targetIndex) return
+    const model = selectableModels.data?.models[from]
+    if (!model) return
+    reorderModel.mutate(
+      { id: model.id, order: targetIndex + 1 },
+      {
+        onError: (err) => {
+          const msg = err instanceof ApiError ? err.message : 'Failed to reorder model'
+          toast.error(msg)
+        },
+      }
+    )
+  }
 
   function openCreateProvider() {
     setEditProvider(undefined)
@@ -301,6 +325,7 @@ export function AiPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8" aria-label="Reorder" />
                     <TableHead>Label</TableHead>
                     <TableHead>ID</TableHead>
                     <TableHead>Combo</TableHead>
@@ -316,6 +341,7 @@ export function AiPage() {
                   {selectableModels.isLoading ? (
                     Array.from({ length: 4 }).map((_, i) => (
                       <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-36" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
@@ -334,17 +360,32 @@ export function AiPage() {
                     ))
                   ) : (selectableModels.data?.models.length ?? 0) === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
+                      <TableCell colSpan={10} className="py-6 text-center text-muted-foreground">
                         No selectable models configured.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    selectableModels.data?.models.map((model) => (
+                    selectableModels.data?.models.map((model, index) => (
                       <SelectableModelRow
                         key={model.id}
                         model={model}
+                        index={index}
                         onEdit={openEditModel}
                         combos={combos.data?.combos ?? []}
+                        isDragging={dragIndex === index}
+                        isOver={overIndex === index}
+                        disabled={reorderModel.isPending}
+                        onDragStart={(idx) => setDragIndex(idx)}
+                        onDragEnter={(idx) => {
+                          if (dragIndex !== null && dragIndex !== idx) {
+                            setOverIndex(idx)
+                          }
+                        }}
+                        onDrop={handleModelDrop}
+                        onDragEnd={() => {
+                          setDragIndex(null)
+                          setOverIndex(null)
+                        }}
                       />
                     ))
                   )}
@@ -384,6 +425,7 @@ export function AiPage() {
         onOpenChange={setModelDialogOpen}
         model={editModel}
         combos={combos.data?.combos ?? []}
+        existingCount={selectableModels.data?.models.length ?? 0}
       />
     </div>
   )
