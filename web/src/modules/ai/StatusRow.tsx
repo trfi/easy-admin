@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { Activity } from 'lucide-react'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -18,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/apiClient'
 import { formatDateTime } from '@/lib/format'
+import { ModelDiagnosticsDialog } from './ModelDiagnosticsDialog'
 import {
   useActivateModel,
   useDeactivateModel,
@@ -32,6 +35,7 @@ export function StatusRow({ status }: { status: AiModelStatusView }) {
   const deactivate = useDeactivateModel()
   const [confirmOff, setConfirmOff] = useState(false)
   const [reason, setReason] = useState('')
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
 
   const pending = activate.isPending || deactivate.isPending
 
@@ -64,52 +68,105 @@ export function StatusRow({ status }: { status: AiModelStatusView }) {
     )
   }
 
-  const detail = status.disabledReason ?? status.lastErrorMessage ?? null
-
   return (
-    <TableRow>
-      <TableCell className="font-medium">
-        <span className="block truncate cursor-default select-all">
-          {status.model}
-        </span>
-      </TableCell>
-      <TableCell className="whitespace-nowrap">
-        {!status.active ? (
-          <Badge variant="destructive">disabled</Badge>
-        ) : status.failureCount > 0 ? (
-          <Badge variant="secondary" className="whitespace-nowrap">
-            {status.failureCount} failures
-          </Badge>
-        ) : (
-          <Badge variant="outline">healthy</Badge>
-        )}
-      </TableCell>
-      <TableCell className="text-muted-foreground max-w-[280px] lg:max-w-[400px] overflow-hidden">
-        {detail ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="block truncate cursor-default select-all">
-                {detail}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-md break-words whitespace-pre-wrap font-mono text-xs">
-              {detail}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          '—'
-        )}
-      </TableCell>
-      <TableCell className="text-muted-foreground whitespace-nowrap">{status.failureCount}</TableCell>
-      <TableCell className="text-muted-foreground whitespace-nowrap">{formatDateTime(status.lastFailureAt)}</TableCell>
-      <TableCell>
-        <Switch
-          checked={status.active}
-          onCheckedChange={onToggle}
-          disabled={pending}
-          aria-label={`Toggle ${status.model}`}
-        />
-      </TableCell>
+    <>
+      <TableRow>
+        <TableCell className="font-medium">
+          <span className="block truncate cursor-default select-all">
+            {status.model}
+          </span>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
+          {!status.active ? (
+            <Badge variant="destructive">disabled</Badge>
+          ) : status.failureCount > 0 ? (
+            <Badge variant="secondary" className="whitespace-nowrap">
+              {status.failureCount} failures
+            </Badge>
+          ) : (
+            <Badge variant="outline">healthy</Badge>
+          )}
+        </TableCell>
+        <TableCell className="text-muted-foreground max-w-[280px] lg:max-w-[400px] overflow-hidden">
+          <div className="flex flex-col gap-1">
+            {status.disabledReason && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Reason:</span>
+                <Badge variant="outline" className="font-mono text-[11px] px-1.5 py-0 h-4">
+                  {status.disabledReason}
+                </Badge>
+              </div>
+            )}
+            {status.lastErrorMessage ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setDiagnosticsOpen(true)}
+                    className="truncate text-left cursor-pointer font-mono text-xs text-foreground hover:underline max-w-full block"
+                    title="Click to view failure diagnostics"
+                  >
+                    {status.lastErrorCode && (
+                      <span className="font-semibold text-muted-foreground mr-1">
+                        [{status.lastErrorCode}]
+                      </span>
+                    )}
+                    <span>{status.lastErrorMessage}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-md break-words whitespace-pre-wrap font-mono text-xs">
+                  {status.lastErrorCode ? `[${status.lastErrorCode}] ` : ''}
+                  {status.lastErrorMessage}
+                </TooltipContent>
+              </Tooltip>
+            ) : !status.disabledReason ? (
+              <span>—</span>
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell className="text-muted-foreground whitespace-nowrap">
+          {status.failureCount > 0 || Boolean(status.recentFailures?.length) ? (
+            <button
+              type="button"
+              onClick={() => setDiagnosticsOpen(true)}
+              className="hover:underline font-mono cursor-pointer flex items-center gap-1"
+              title="Click to view failure timeline"
+            >
+              <span>{status.failureCount}</span>
+              {Boolean(status.recentFailures?.length) && (
+                <span className="text-[11px] text-muted-foreground">
+                  ({status.recentFailures?.length} log{status.recentFailures?.length === 1 ? '' : 's'})
+                </span>
+              )}
+            </button>
+          ) : (
+            <span className="font-mono">{status.failureCount}</span>
+          )}
+        </TableCell>
+        <TableCell className="text-muted-foreground whitespace-nowrap">
+          {formatDateTime(status.lastFailureAt)}
+        </TableCell>
+        <TableCell>
+          <Switch
+            checked={status.active}
+            onCheckedChange={onToggle}
+            disabled={pending}
+            aria-label={`Toggle ${status.model}`}
+          />
+        </TableCell>
+        <TableCell className="text-right">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDiagnosticsOpen(true)}
+            title={`View diagnostics for ${status.model}`}
+            aria-label={`View diagnostics for ${status.model}`}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <Activity className="h-4 w-4" />
+          </Button>
+        </TableCell>
+      </TableRow>
 
       <AlertDialog open={confirmOff} onOpenChange={setConfirmOff}>
         <AlertDialogContent>
@@ -143,6 +200,12 @@ export function StatusRow({ status }: { status: AiModelStatusView }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </TableRow>
+
+      <ModelDiagnosticsDialog
+        status={status}
+        open={diagnosticsOpen}
+        onOpenChange={setDiagnosticsOpen}
+      />
+    </>
   )
 }

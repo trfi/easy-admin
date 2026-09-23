@@ -224,6 +224,19 @@ export async function deactivateModel(
   return status
 }
 
+export async function resetModelFailures(
+  model: string,
+  config: Config,
+  fetchImpl: typeof fetch = fetch
+): Promise<AiModelStatusView> {
+  const { model: status } = await hepiRequest<{ model: AiModelStatusView }>(
+    { method: 'POST', path: '/ai-models/reset-failures', body: { model } },
+    config,
+    fetchImpl
+  )
+  return status
+}
+
 // ── Model defaults (singleton config owned by Hepi) ──
 
 interface HepiQuizModelDefaultsDto {

@@ -14,7 +14,6 @@ Run from the repo root (`bun run --filter '*'` fans out to both workspaces):
 bun install                          # install all workspace deps
 bun run typecheck                    # tsc --noEmit across web + bff
 bun run test                         # vitest run across web + bff
-bun run lint                         # eslint .
 bun run format                       # prettier --write .
 bun run deploy                       # build zip & deploy to Dokploy
 ```

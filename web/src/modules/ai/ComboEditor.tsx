@@ -279,7 +279,7 @@ export function ComboEditor({
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
                       placeholder="provider/model"
-                      className="h-7 text-xs font-mono py-0 px-2 flex-1"
+                      className="h-7 text-[13px] font-mono py-0 px-2 flex-1"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') {
@@ -323,7 +323,7 @@ export function ComboEditor({
                     disabled={saving}
                     title="Click to edit candidate"
                   >
-                    <span className="truncate font-medium font-mono text-xs">
+                    <span className="truncate font-medium font-mono text-[13px]">
                       {candidate.providerId}/{candidate.modelId}
                     </span>
                     <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />

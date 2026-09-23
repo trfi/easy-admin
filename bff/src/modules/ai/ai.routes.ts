@@ -39,6 +39,7 @@ import {
   listSelectableModels,
   listStatus,
   reorderComboCandidate,
+  resetModelFailures,
   testCombo,
   testProvider,
   updateChatDefault,
@@ -210,6 +211,13 @@ export function aiRoutes(config: Config): Hono<AppEnv> {
     guard(c, async () => {
       const { model, reason } = validateModelStatusInput(await readJson(c))
       return c.json({ status: await deactivateModel(model, reason, config) })
+    })
+  )
+
+  router.post('/status/reset-failures', (c) =>
+    guard(c, async () => {
+      const { model } = validateModelStatusInput(await readJson(c))
+      return c.json({ status: await resetModelFailures(model, config) })
     })
   )
 

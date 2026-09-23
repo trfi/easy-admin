@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { toModelDefaultsView, toProviderView, toSelectableModelView } from './ai.service'
+import { describe, expect, it, vi } from 'vitest'
+import type { Config } from '../../config'
+import { resetModelFailures, toModelDefaultsView, toProviderView, toSelectableModelView } from './ai.service'
 
 // Hepi already strips apiKey server-side, but R3 says the BFF must be the place a
 // provider object becomes a client view — and it must never let a raw apiKey
@@ -115,5 +116,48 @@ describe('toModelDefaultsView', () => {
     expect(serialized).not.toContain('sk-default-canary')
     expect(serialized).not.toContain('secret-default-canary')
     expect(serialized).not.toContain('sk-quiz-canary')
+  })
+})
+
+describe('resetModelFailures proxy', () => {
+  const mockConfig: Config = {
+    mongoUri: 'mongodb://localhost:27017/test',
+    jwtSecret: 'secret',
+    adminUsername: 'admin',
+    adminPassword: 'pw',
+    adminSecret: 'secret-key-123',
+    easyApiUrl: 'https://api.example.test',
+    hepiApiUrl: 'https://hepi.example.test',
+    usdToVndRate: 26309,
+    port: 3010,
+  }
+
+  it('calls Hepi /ai-models/reset-failures with model and admin secret', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        model: {
+          model: 'openai/gpt-4o-mini',
+          active: true,
+          configured: true,
+          failureCount: 0,
+        },
+      }),
+    })
+
+    const res = await resetModelFailures(
+      'openai/gpt-4o-mini',
+      mockConfig,
+      fetchMock as unknown as typeof fetch
+    )
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://hepi.example.test/ai-models/reset-failures')
+    expect(init.method).toBe('POST')
+    expect(init.headers['X-Admin-Secret']).toBe('secret-key-123')
+    expect(JSON.parse(init.body)).toEqual({ model: 'openai/gpt-4o-mini' })
+    expect(res.failureCount).toBe(0)
   })
 })

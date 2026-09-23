@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -43,6 +44,16 @@ export function AiPage() {
   const combos = useCombos()
   const status = useStatus()
   const selectableModels = useSelectableModels()
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  async function onRefresh() {
+    setIsRefreshing(true)
+    try {
+      await status.refetch()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [editProvider, setEditProvider] = useState<AiProviderView | undefined>(undefined)
@@ -98,13 +109,28 @@ export function AiPage() {
           }, { replace: true })
         }}
       >
-        <TabsList>
-          <TabsTrigger value="providers">Providers</TabsTrigger>
-          <TabsTrigger value="combos">Model combos</TabsTrigger>
-          <TabsTrigger value="status">Model status</TabsTrigger>
-          <TabsTrigger value="models">Selectable models</TabsTrigger>
-          <TabsTrigger value="defaults">Model defaults</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="providers">Providers</TabsTrigger>
+            <TabsTrigger value="combos">Model combos</TabsTrigger>
+            <TabsTrigger value="status">Model status</TabsTrigger>
+            <TabsTrigger value="models">Selectable models</TabsTrigger>
+            <TabsTrigger value="defaults">Model defaults</TabsTrigger>
+          </TabsList>
+          {activeTab === 'status' && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="rounded-full"
+              title="Refresh model status"
+              aria-label="Refresh model status"
+            >
+              <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+            </Button>
+          )}
+        </div>
 
         <TabsContent value="providers" className="pt-4">
           <Card>
@@ -232,6 +258,7 @@ export function AiPage() {
                     <TableHead>Failures</TableHead>
                     <TableHead>Last failure</TableHead>
                     <TableHead>Active</TableHead>
+                    <TableHead className="w-[60px] text-right">Diag</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -244,11 +271,12 @@ export function AiPage() {
                         <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                       </TableRow>
                     ))
                   ) : statusList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
                         No model status recorded yet.
                       </TableCell>
                     </TableRow>

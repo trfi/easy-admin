@@ -34,12 +34,20 @@ export interface AiModelComboView {
   updatedAt?: string
 }
 
+export interface AiModelFailureRecordView {
+  code: string
+  message: string
+  timestamp: string
+  comboId?: string
+}
+
 // Per-MODEL status (Hepi keys these by `providerId/modelId`, exposed as `model`).
 export interface AiModelStatusView {
   model: string
   active: boolean
   configured: boolean
   failureCount: number
+  firstFailureAt?: string
   lastFailureAt?: string
   lastSuccessAt?: string
   lastErrorCode?: string
@@ -47,6 +55,7 @@ export interface AiModelStatusView {
   disabledAt?: string
   disabledReason?: string
   updatedBy?: string
+  recentFailures?: AiModelFailureRecordView[]
 }
 
 export type QuizDefaultRole =

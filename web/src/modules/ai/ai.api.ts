@@ -30,12 +30,20 @@ export interface AiModelComboView {
   updatedAt?: string
 }
 
+export interface AiModelFailureRecordView {
+  code: string
+  message: string
+  timestamp: string
+  comboId?: string
+}
+
 // Per-MODEL status (Hepi keys these by `providerId/modelId`, exposed as `model`).
 export interface AiModelStatusView {
   model: string
   active: boolean
   configured: boolean
   failureCount: number
+  firstFailureAt?: string
   lastFailureAt?: string
   lastSuccessAt?: string
   lastErrorCode?: string
@@ -43,6 +51,7 @@ export interface AiModelStatusView {
   disabledAt?: string
   disabledReason?: string
   updatedBy?: string
+  recentFailures?: AiModelFailureRecordView[]
 }
 
 export type QuizDefaultRole =
@@ -202,6 +211,18 @@ export function useDeactivateModel() {
       apiFetch<{ status: AiModelStatusView }>('/ai/status/deactivate', {
         method: 'POST',
         body: JSON.stringify(reason ? { model, reason } : { model }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: STATUS_KEY }),
+  })
+}
+
+export function useResetModelFailures() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ model }: { model: string }) =>
+      apiFetch<{ status: AiModelStatusView }>('/ai/status/reset-failures', {
+        method: 'POST',
+        body: JSON.stringify({ model }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: STATUS_KEY }),
   })
